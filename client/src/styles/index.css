@@ -1,1 +1,57 @@
 @import "tailwindcss";
+
+@theme {
+    /* Tactical Palette - Branded Tokens */
+    --color-brand-midnight: #0B1C2D;
+    --color-brand-steel: #1F3A5F;
+    --color-brand-cyan: #00C2FF;
+
+    /* Semantic Tokens for Tactical UI */
+    --color-tactical-bg: var(--tactical-bg);
+    --color-tactical-surface: var(--tactical-surface);
+    --color-tactical-text: var(--tactical-text);
+    --color-tactical-muted: var(--tactical-muted);
+    --color-tactical-border: var(--tactical-border);
+}
+
+:root {
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+
+    /* Tactical Palette - Light Mode (Default) */
+    --tactical-bg: #F8FAFC;
+    --tactical-surface: #FFFFFF;
+    --tactical-text: #0F172A;
+    --tactical-muted: #64748B;
+    --tactical-border: #E2E8F0;
+
+    background-color: var(--tactical-bg);
+    color: var(--tactical-text);
+}
+
+/* Dark Tactical is the default for "Command Center" feel */
+.dark,
+:root[class~="dark"] {
+    --tactical-bg: #0F172A;
+    --tactical-surface: #1E293B;
+    --tactical-text: #E5E7EB;
+    --tactical-muted: #9CA3AF;
+    --tactical-border: #334155;
+}
+
+@layer base {
+    body {
+        background-color: var(--tactical-bg);
+        color: var(--tactical-text);
+    }
+}
+
+@layer utilities {
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
