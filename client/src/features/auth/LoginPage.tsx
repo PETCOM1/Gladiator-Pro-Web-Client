@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Shield, Eye, EyeOff, ArrowRight, ChevronRight } from 'lucide-react';
+import logo from '../../assets/Gladiator_Logo.png';
 import { useTenant } from '../../contexts/TenantContext';
 import type { UserRole } from '../../types/user';
 
@@ -55,7 +56,7 @@ export function LoginPage() {
     };
 
     return (
-        <div className="dark min-h-screen bg-tactical-bg flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen bg-tactical-bg flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background grid */}
             <div className="absolute inset-0 opacity-[0.03]" style={{
                 backgroundImage: 'linear-gradient(#00C2FF 1px, transparent 1px), linear-gradient(to right, #00C2FF 1px, transparent 1px)',
@@ -66,15 +67,20 @@ export function LoginPage() {
 
             <div className="relative z-10 w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
 
-                {/* Left branding panel */}
                 <div className="hidden md:flex flex-col gap-8">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-brand-cyan rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(0,194,255,0.4)]">
-                            <Shield size={28} className="text-brand-midnight" />
+                    {/* Brand Identity Block */}
+                    <div className="flex flex-col items-start gap-5">
+                        <div className="w-28 h-28 rounded-full bg-brand-midnight/60 border border-brand-cyan/20 shadow-[0_0_40px_rgba(0,194,255,0.12)] overflow-hidden relative group">
+                            <div className="absolute inset-0 bg-gradient-to-br from-brand-cyan/8 via-transparent to-transparent pointer-events-none rounded-full" />
+                            <img
+                                src={logo}
+                                alt="Gladiator Logo"
+                                className="w-full h-full object-cover rounded-full relative z-10 transition-transform duration-500 group-hover:scale-110"
+                            />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">GLADIATOR</h1>
-                            <p className="text-[10px] text-brand-cyan font-black uppercase tracking-[0.3em]">Pro · Tactical Command</p>
+                            <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic leading-none">GLADIATOR</h1>
+                            <p className="text-[10px] text-brand-cyan font-black uppercase tracking-[0.35em] mt-1.5">Pro · Tactical Command</p>
                         </div>
                     </div>
 

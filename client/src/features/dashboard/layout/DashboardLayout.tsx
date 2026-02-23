@@ -9,9 +9,9 @@ import {
     Settings,
     Bell,
     HelpCircle,
-    Search,
-    Shield
+    Search
 } from 'lucide-react';
+import logo from '@/assets/Gladiator_Logo.png';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 import '@fontsource/outfit/400.css';
@@ -24,6 +24,7 @@ interface SidebarItem {
     description?: string;
     active?: boolean;
     onClick?: () => void;
+    badge?: number;
 }
 
 interface DashboardLayoutProps {
@@ -66,7 +67,7 @@ export function DashboardLayout({
     const sectionSubtitle = activeItem?.description;
 
     return (
-        <div className="flex h-screen overflow-hidden dark bg-tactical-bg font-outfitSelection text-tactical-text">
+        <div className="flex h-screen overflow-hidden bg-tactical-bg font-outfitSelection text-tactical-text">
             {/* Mobile Overlay */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
@@ -94,12 +95,24 @@ export function DashboardLayout({
                     isCollapsed ? "items-center py-8" : "p-8"
                 )}>
                     {/* Logo */}
-                    <div className={cn("flex items-center mb-10", isCollapsed ? "justify-center" : "gap-3")}>
-                        <div className="w-10 h-10 bg-brand-cyan rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(0,194,255,0.3)]">
-                            <Shield className="text-brand-midnight w-6 h-6" />
-                        </div>
-                        {!isCollapsed && (
-                            <h2 className="text-2xl font-black tracking-tighter uppercase italic text-brand-cyan">GLADIATOR</h2>
+                    <div className={cn(
+                        "flex items-center mb-10 transition-all duration-300",
+                        isCollapsed ? "justify-center" : "justify-start"
+                    )}>
+                        {isCollapsed ? (
+                            <div className="w-10 h-10 rounded-full bg-brand-midnight border border-brand-cyan/30 flex items-center justify-center shadow-[0_0_16px_rgba(0,194,255,0.15)] overflow-hidden">
+                                <img src={logo} alt="Gladiator" className="w-full h-full object-cover rounded-full" />
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 w-full">
+                                <div className="w-12 h-12 rounded-full bg-brand-midnight border border-brand-cyan/30 flex items-center justify-center shadow-[0_0_20px_rgba(0,194,255,0.15)] overflow-hidden shrink-0">
+                                    <img src={logo} alt="Gladiator" className="w-full h-full object-cover rounded-full" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black tracking-tighter uppercase italic text-white leading-none">GLADIATOR</h2>
+                                    <p className="text-[9px] font-bold text-brand-cyan/70 uppercase tracking-[0.2em] mt-0.5">Pro Command</p>
+                                </div>
+                            </div>
                         )}
                     </div>
 
@@ -157,6 +170,16 @@ export function DashboardLayout({
                                 </div>
                                 {!isCollapsed && (
                                     <span className="text-sm font-bold truncate">{item.label}</span>
+                                )}
+
+                                {/* Badge */}
+                                {item.badge !== undefined && item.badge > 0 && (
+                                    <div className={cn(
+                                        "absolute flex items-center justify-center bg-brand-cyan text-brand-midnight text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 shadow-[0_0_10px_rgba(0,194,255,0.4)]",
+                                        isCollapsed ? "top-2 right-2" : "right-4"
+                                    )}>
+                                        {item.badge}
+                                    </div>
                                 )}
                             </button>
                         ))}

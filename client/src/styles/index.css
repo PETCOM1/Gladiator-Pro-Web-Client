@@ -17,25 +17,25 @@
 :root {
     font-family: 'Outfit', system-ui, -apple-system, sans-serif;
 
-    /* Tactical Palette - Light Mode (Default) */
-    --tactical-bg: #F8FAFC;
-    --tactical-surface: #FFFFFF;
-    --tactical-text: #0F172A;
-    --tactical-muted: #64748B;
-    --tactical-border: #E2E8F0;
-
-    background-color: var(--tactical-bg);
-    color: var(--tactical-text);
-}
-
-/* Dark Tactical is the default for "Command Center" feel */
-.dark,
-:root[class~="dark"] {
+    /* Tactical Palette - Dark Tactical is the default for "Command Center" feel */
     --tactical-bg: #0F172A;
     --tactical-surface: #1E293B;
     --tactical-text: #E5E7EB;
     --tactical-muted: #9CA3AF;
     --tactical-border: #334155;
+
+    background-color: var(--tactical-bg);
+    color: var(--tactical-text);
+}
+
+/* Light Mode (Optional alternate) */
+.light,
+:root[class~="light"] {
+    --tactical-bg: #F8FAFC;
+    --tactical-surface: #FFFFFF;
+    --tactical-text: #0F172A;
+    --tactical-muted: #64748B;
+    --tactical-border: #E2E8F0;
 }
 
 @layer base {
