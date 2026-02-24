@@ -1,17 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, MapPin, Settings,
-    BarChart3, Shield, Clock, AlertTriangle, Search, Plus,
-    UserX, Edit3, Save, Trash2, X, Briefcase, ChevronRight,
-    Lock, Mail, Building
+    BarChart3, Shield, Clock, Search, Plus,
+    Edit3, Save, Trash2, X, Briefcase,
+    Lock, Mail, Building, User as UserIcon
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
 import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers as initialUsers } from '../../services/mockData';
 import type { Site, Officer, User } from '../../types/user';
+import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
 
 // --- Types ---
-type TenantView = 'overview' | 'sites' | 'supervisors' | 'officers' | 'analytics' | 'settings';
+type TenantView = 'overview' | 'sites' | 'supervisors' | 'officers' | 'analytics' | 'settings' | 'profile';
 
 // --- Helpers ---
 const badgeStyle: Record<string, string> = {
@@ -22,20 +23,19 @@ const badgeStyle: Record<string, string> = {
 
 // --- Shared Components ---
 
-function SectionHeader({ title, sub }: { title: string; sub?: string }) {
-    return (
+function SectionHeader({ sub }: { title?: string; sub?: string }) {
+    return sub ? (
         <div className="mb-6">
-            <h1 className="text-xl font-black text-white uppercase tracking-tight">{title}</h1>
-            {sub && <p className="text-xs text-tactical-muted mt-1">{sub}</p>}
+            <p className="text-xs text-tactical-muted mt-1">{sub}</p>
         </div>
-    );
+    ) : null;
 }
 
 function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-tactical-surface border border-tactical-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+            <div className="bg-tactical-surface/60 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-tactical-border">
                     <h2 className="text-sm font-black text-white uppercase tracking-tight">{title}</h2>
                     <button onClick={onClose} className="text-tactical-muted hover:text-white transition-colors"><X size={18} /></button>
@@ -53,7 +53,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
 
     // --- State ---
     const [sites, setSites] = useState<Site[]>(initialSites.filter(s => s.tenantId === 'tenant-1'));
-    const [officers, setOfficers] = useState<Officer[]>(initialOfficers.filter(o => o.tenantId === 'tenant-1'));
+    const [officers] = useState<Officer[]>(initialOfficers.filter(o => o.tenantId === 'tenant-1'));
     const [supervisors, setSupervisors] = useState<User[]>(
         Object.values(initialUsers).filter(u => u.role === 'site-manager' && u.tenantId === 'tenant-1')
     );
@@ -116,7 +116,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         return (
             <div>
-                <SectionHeader title="Operational Overview" sub={`Managing operations for ${companyInfo.name}`} />
+                <SectionHeader sub={`Managing operations for ${companyInfo.name}`} />
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {kpis.map((k) => {
                         const Icon = k.icon;
@@ -186,7 +186,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const SiteManagementView = () => {
         return (
             <div>
-                <SectionHeader title="Site Management" sub="Operational oversight level" />
+                <SectionHeader sub="Operational oversight level" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {sites.map(site => (
                         <div key={site.id} className="bg-tactical-surface border border-tactical-border rounded-2xl p-6 hover:border-brand-cyan/30 transition-all group">
@@ -258,10 +258,18 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
 
     const SupervisorManagementView = () => {
         const [search, setSearch] = useState('');
+        const [currentPage, setCurrentPage] = useState(1);
+        const PAGE_SIZE = 5;
+
+        const filtered = supervisors.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+        const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+        const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+        useEffect(() => setCurrentPage(1), [search]);
 
         return (
             <div>
-                <SectionHeader title="Supervisor Network" sub="Manage company administrators and site managers" />
+                <SectionHeader sub="Manage company administrators and site managers" />
                 <div className="mb-6 flex justify-between items-center gap-4">
                     <div className="relative flex-1 max-w-sm">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
@@ -287,7 +295,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         ))}
                     </div>
                     <div className="divide-y divide-tactical-border">
-                        {supervisors.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).map(s => (
+                        {paginated.map(s => (
                             <div key={s.id} className="grid grid-cols-4 px-6 py-5 items-center hover:bg-brand-midnight/20 transition-all group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-brand-midnight border border-tactical-border flex items-center justify-center shrink-0">
@@ -330,6 +338,13 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         ))}
                     </div>
                 </div>
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={filtered.length}
+                    resultRange={filtered.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}` : '0 - 0'}
+                />
 
                 <Modal isOpen={isSupModalOpen} onClose={() => setIsSupModalOpen(false)} title={editingSupervisor ? "Update Admin Profile" : "Register New Supervisor"}>
                     <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); saveSupervisor({ name: String(formData.get('name')), email: String(formData.get('email')) }); }}>
@@ -358,15 +373,22 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const OfficerDirectoryView = () => {
         const [search, setSearch] = useState('');
         const [siteFilter, setSiteFilter] = useState('all');
+        const [currentPage, setCurrentPage] = useState(1);
+        const PAGE_SIZE = 8;
 
         const filteredOfficers = officers.filter(o =>
             (o.name.toLowerCase().includes(search.toLowerCase()) || o.role.toLowerCase().includes(search.toLowerCase())) &&
             (siteFilter === 'all' || o.siteId === siteFilter)
         );
 
+        const totalPages = Math.ceil(filteredOfficers.length / PAGE_SIZE);
+        const paginated = filteredOfficers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+        useEffect(() => setCurrentPage(1), [search, siteFilter]);
+
         return (
             <div>
-                <SectionHeader title="Personnel Roster" sub="Operational officer database and live status tracking" />
+                <SectionHeader sub="Operational officer database and live status tracking" />
                 <div className="mb-6 flex flex-col sm:flex-row gap-4">
                     <div className="relative flex-1">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
@@ -394,7 +416,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         ))}
                     </div>
                     <div className="divide-y divide-tactical-border">
-                        {filteredOfficers.map(o => (
+                        {paginated.map(o => (
                             <div key={o.id} className="grid grid-cols-5 px-6 py-4 items-center hover:bg-brand-midnight/10 transition-all">
                                 <span className="text-xs font-bold text-white">{o.name}</span>
                                 <span className="text-[10px] font-black text-brand-cyan/60 uppercase tracking-widest">{o.role}</span>
@@ -413,11 +435,18 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                                 </div>
                             </div>
                         ))}
-                        {filteredOfficers.length === 0 && (
+                        {paginated.length === 0 && (
                             <div className="px-6 py-12 text-center text-tactical-muted text-sm">No personnel matching current filters.</div>
                         )}
                     </div>
                 </div>
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={filteredOfficers.length}
+                    resultRange={filteredOfficers.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filteredOfficers.length)}` : '0 - 0'}
+                />
             </div>
         );
     };
@@ -425,7 +454,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const OperationalAnalyticsView = () => {
         return (
             <div>
-                <SectionHeader title="Operational Oversight" sub="Personnel deployment trends and incident response analytics" />
+                <SectionHeader sub="Personnel deployment trends and incident response analytics" />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div className="bg-tactical-surface border border-tactical-border rounded-2xl p-6">
                         <div className="flex items-center justify-between mb-6">
@@ -495,7 +524,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const SettingsView = () => {
         return (
             <div>
-                <SectionHeader title="Company Configuration" sub="Manage your company profile and platform preferences" />
+                <SectionHeader sub="Manage your company profile and platform preferences" />
                 <div className="max-w-4xl space-y-6">
                     <div className="bg-tactical-surface border border-tactical-border rounded-2xl p-8">
                         <div className="flex items-center gap-3 mb-8">
@@ -554,13 +583,85 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         );
     };
 
+    const ProfileSettingsView = () => {
+        return (
+            <div>
+                <SectionHeader sub="Manage your personal profile and account security" />
+                <div className="max-w-4xl space-y-6">
+                    <div className="bg-tactical-surface border border-tactical-border rounded-2xl p-8">
+                        <div className="flex items-center gap-6 mb-8">
+                            <div className="relative w-24 h-24">
+                                <div className="w-full h-full rounded-2xl border-2 border-brand-cyan overflow-hidden bg-brand-midnight flex items-center justify-center shadow-[0_0_30px_rgba(0,194,255,0.1)]">
+                                    <UserIcon size={40} className="text-brand-cyan/40" />
+                                </div>
+                                <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-brand-cyan rounded-lg flex items-center justify-center text-brand-midnight shadow-lg hover:scale-110 transition-all border-2 border-brand-midnight">
+                                    <Edit3 size={14} />
+                                </button>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black text-white uppercase tracking-tight">Marcus Aurelius</h2>
+                                <p className="text-xs text-brand-cyan font-black uppercase tracking-widest mt-1">Enterprise Owner</p>
+                                <p className="text-[10px] text-tactical-muted mt-2">Member since Oct 2023 • ID: GP-ENT-001</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Full Name</label>
+                                    <input type="text" defaultValue="Marcus Aurelius" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Email Address</label>
+                                    <input type="email" defaultValue="m.aurelius@gladiator-pro.com" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Callsign</label>
+                                    <input type="text" defaultValue="CENTURION" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Duty Status</label>
+                                    <div className="flex items-center gap-2 bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-widest">Active Duty / Online</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-tactical-border flex justify-end gap-3">
+                            <button className="px-6 py-2 border border-tactical-border text-tactical-muted text-[10px] font-black uppercase tracking-widest rounded-xl hover:border-brand-cyan/30 hover:text-white transition-all">Reset Password</button>
+                            <button className="px-8 py-2 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all">Update Profile</button>
+                        </div>
+                    </div>
+
+                    <div className="bg-tactical-surface border border-tactical-border rounded-2xl p-8 border-red-500/10">
+                        <div className="flex items-center gap-3 mb-6">
+                            <Shield size={20} className="text-red-400" />
+                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Security Controls</h3>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-brand-midnight rounded-xl border border-tactical-border">
+                            <div>
+                                <p className="text-xs font-bold text-white uppercase tracking-wide">Two-Factor Authentication</p>
+                                <p className="text-[10px] text-tactical-muted mt-1 uppercase">Recommended for all privileged accounts</p>
+                            </div>
+                            <button className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest rounded-lg">Enabled</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const sidebarItems = [
-        { icon: <LayoutDashboard size={20} />, label: 'Operational Overview', active: activeView === 'overview', onClick: () => setActiveView('overview') },
-        { icon: <MapPin size={20} />, label: 'Site Management', active: activeView === 'sites', onClick: () => setActiveView('sites') },
-        { icon: <Shield size={20} />, label: 'Supervisor Network', active: activeView === 'supervisors', onClick: () => setActiveView('supervisors'), badge: supervisors.length },
-        { icon: <Users size={20} />, label: 'Personnel Roster', active: activeView === 'officers', onClick: () => setActiveView('officers') },
-        { icon: <BarChart3 size={20} />, label: 'Tactical Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
-        { icon: <Settings size={20} />, label: 'System Settings', active: activeView === 'settings', onClick: () => setActiveView('settings') },
+        { icon: <LayoutDashboard size={20} />, label: 'Operational Overview', description: `Managing operations for ${companyInfo.name}`, active: activeView === 'overview', onClick: () => setActiveView('overview') },
+        { icon: <MapPin size={20} />, label: 'Site Management', description: 'Operational oversight level', active: activeView === 'sites', onClick: () => setActiveView('sites') },
+        { icon: <Shield size={20} />, label: 'Supervisor Network', description: 'Manage company administrators and site managers', active: activeView === 'supervisors', onClick: () => setActiveView('supervisors'), badge: supervisors.length },
+        { icon: <Users size={20} />, label: 'Personnel Roster', description: 'Operational officer database and live status tracking', active: activeView === 'officers', onClick: () => setActiveView('officers') },
+        { icon: <BarChart3 size={20} />, label: 'Tactical Analytics', description: 'Personnel deployment trends and incident response analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
+        { icon: <Settings size={20} />, label: 'System Settings', description: 'Manage your company profile and platform preferences', active: activeView === 'settings', onClick: () => setActiveView('settings') },
     ];
 
     return (
@@ -570,6 +671,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
             sidebarItems={sidebarItems}
             currentUser={{ name: 'John Tenant' }}
             onLogout={onLogout}
+            onProfileClick={() => setActiveView('profile')}
         >
             {activeView === 'overview' && <OverviewView />}
             {activeView === 'sites' && <SiteManagementView />}
@@ -577,6 +679,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
             {activeView === 'officers' && <OfficerDirectoryView />}
             {activeView === 'analytics' && <OperationalAnalyticsView />}
             {activeView === 'settings' && <SettingsView />}
+            {activeView === 'profile' && <ProfileSettingsView />}
         </DashboardLayout>
     );
 }

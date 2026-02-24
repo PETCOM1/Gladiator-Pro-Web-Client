@@ -4,7 +4,7 @@ import {
     Wrench, UserPlus, MessageSquare, Search,
     ChevronDown, ChevronUp, X, Check,
     Ban, Unlock, Activity, TrendingUp, TrendingDown,
-    CheckCircle2, AlertCircle, Clock, User as UserIcon, ShieldCheck, Plus
+    CheckCircle2, AlertCircle, Clock, User as UserIcon, Plus
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
 import {
@@ -82,7 +82,7 @@ function OverviewView({ onNav }: { onNav: (v: string) => void }) {
     ];
     return (
         <div>
-            <SectionHeader sub="Real-time snapshot of the Gladiator Pro SaaS platform" />
+            <SectionHeader sub="Operational snapshot of the Gladiator Pro SaaS platform" />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {statCards.map((s) => {
                     const Icon = s.icon;
@@ -674,89 +674,8 @@ function TicketsView() {
     );
 }
 
-// ─── System Users (Super Admin Only) ──────────────────────────────────────────
-function SystemUsersView() {
-    const [search, setSearch] = useState('');
-    const [filter, setFilter] = useState<string>('all');
-    const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 5;
-
-    // In a real app we'd fetch users from the backend
-    const dummyAdmins = [
-        { id: '1', name: 'Marcus Global', email: 'admin@gladiator-pro.com', role: 'super-admin', status: 'active', lastLogin: '2024-02-24 10:20' },
-        { id: '2', name: 'Julius Ceasar', email: 'j.ceasar@gladiator-pro.com', role: 'global-admin', status: 'active', lastLogin: '2024-02-23 15:45' },
-        { id: '3', name: 'Commodus Rex', email: 'commodus@gladiator-pro.com', role: 'global-admin', status: 'suspended', lastLogin: '2024-02-20 09:12' },
-    ];
-
-    const filtered = dummyAdmins.filter(u => {
-        const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-        const matchFilter = filter === 'all' || u.role === filter;
-        return matchSearch && matchFilter;
-    });
-
-    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-    const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-    useEffect(() => setCurrentPage(1), [search, filter]);
-
-    return (
-        <div>
-            <SectionHeader sub="Manage platform administrators and system access levels" />
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="relative flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search administrators..." className="w-full bg-tactical-surface border border-tactical-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
-                </div>
-                <div className="flex gap-2">
-                    {['all', 'super-admin', 'global-admin'].map(f => (
-                        <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${filter === f ? 'bg-brand-cyan text-brand-midnight border-brand-cyan' : 'bg-tactical-surface border-tactical-border text-tactical-muted hover:border-brand-cyan/30'}`}>{f.replace('-', ' ')}</button>
-                    ))}
-                </div>
-                <button className="px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,194,255,0.15)] flex items-center gap-2">
-                    <UserPlus size={14} /> Provision Admin
-                </button>
-            </div>
-            <Card className="overflow-hidden">
-                <TableHeader cols={['Administrator', 'Role', 'Status', 'Last Access', 'Actions']} />
-                <div className="divide-y divide-tactical-border">
-                    {paginated.map(u => (
-                        <div key={u.id} className="grid px-6 py-4 items-center gap-4 hover:bg-brand-midnight/20 transition-all" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-brand-midnight border border-tactical-border flex items-center justify-center shrink-0">
-                                    <UserIcon size={14} className={u.role === 'super-admin' ? 'text-brand-cyan' : 'text-tactical-muted'} />
-                                </div>
-                                <div className="min-w-0"><p className="text-xs font-bold text-white truncate">{u.name}</p><p className="text-[9px] text-tactical-muted truncate">{u.email}</p></div>
-                            </div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${u.role === 'super-admin' ? 'text-brand-cyan' : 'text-slate-400'}`}>{u.role.replace('-', ' ')}</span>
-                            <Badge label={u.status} color={statusColor[u.status]} />
-                            <span className="text-xs text-tactical-muted">{u.lastLogin}</span>
-                            <div className="flex gap-2">
-                                {u.role !== 'super-admin' && (
-                                    <button className="p-2 border border-tactical-border rounded-lg text-tactical-muted hover:border-red-500/30 hover:text-red-400 transition-all">
-                                        <Ban size={12} />
-                                    </button>
-                                )}
-                                <button className="p-2 border border-tactical-border rounded-lg text-tactical-muted hover:border-brand-cyan/30 hover:text-brand-cyan transition-all">
-                                    <Wrench size={12} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <TacticalPagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                    totalResults={filtered.length}
-                    resultRange={filtered.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}` : '0 - 0'}
-                />
-            </Card>
-        </div>
-    );
-}
-
 // ─── Root Component ────────────────────────────────────────────────────────────
-type View = 'overview' | 'tenants' | 'payments' | 'maintenance' | 'onboarding' | 'tickets' | 'profile' | 'system_access';
+type View = 'overview' | 'tenants' | 'payments' | 'maintenance' | 'onboarding' | 'tickets' | 'profile';
 
 const ProfileSettingsView = () => {
     return (
@@ -774,9 +693,9 @@ const ProfileSettingsView = () => {
                             </button>
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-white uppercase tracking-tight">Marcus Global</h2>
-                            <p className="text-xs text-brand-cyan font-black uppercase tracking-widest mt-1">Super Administrator</p>
-                            <p className="text-[10px] text-tactical-muted mt-2">Platform Control Authority • ID: GP-ROOT-001</p>
+                            <h2 className="text-xl font-black text-white uppercase tracking-tight">Admin User</h2>
+                            <p className="text-xs text-brand-cyan font-black uppercase tracking-widest mt-1">Platform Administrator</p>
+                            <p className="text-[10px] text-tactical-muted mt-2">Platform Control Authority • ID: GP-ADM-001</p>
                         </div>
                     </div>
 
@@ -784,7 +703,7 @@ const ProfileSettingsView = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Full Name</label>
-                                <input type="text" defaultValue="Marcus Global" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                <input type="text" defaultValue="Admin User" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
                             </div>
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Email Address</label>
@@ -794,7 +713,7 @@ const ProfileSettingsView = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">System Callsign</label>
-                                <input type="text" defaultValue="ROOT_LEVEL_1" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                <input type="text" defaultValue="ADMIN_LEVEL_1" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
                             </div>
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Duty Status</label>
@@ -807,7 +726,7 @@ const ProfileSettingsView = () => {
                     </div>
 
                     <div className="mt-8 pt-8 border-t border-tactical-border flex justify-end gap-3">
-                        <button className="px-6 py-2 border border-tactical-border text-tactical-muted text-[10px] font-black uppercase tracking-widest rounded-xl hover:border-brand-cyan/30 hover:text-white transition-all">Emergency Lockout</button>
+                        <button className="px-6 py-2 border border-tactical-border text-tactical-muted text-[10px] font-black uppercase tracking-widest rounded-xl hover:border-brand-cyan/30 hover:text-white transition-all">Reset Password</button>
                         <button className="px-8 py-2 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all">Update System Profile</button>
                     </div>
                 </div>
@@ -816,7 +735,7 @@ const ProfileSettingsView = () => {
     );
 };
 
-export function GlobalCommandDashboard({ onLogout }: { onLogout: () => void }) {
+export function GlobalAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [activeView, setActiveView] = useState<View>('overview');
 
     const sidebarItems = [
@@ -826,15 +745,14 @@ export function GlobalCommandDashboard({ onLogout }: { onLogout: () => void }) {
         { icon: <Wrench size={20} />, label: 'System Maintenance', description: 'Corrective & preventive maintenance logs for the platform', active: activeView === 'maintenance', onClick: () => setActiveView('maintenance') },
         { icon: <UserPlus size={20} />, label: 'Onboarding Queue', description: 'Review and approve new tenant applications', active: activeView === 'onboarding', onClick: () => setActiveView('onboarding'), badge: mockOnboarding.filter(o => o.status === 'pending').length || undefined },
         { icon: <MessageSquare size={20} />, label: 'Support Tickets', description: 'Tenant complaints and support requests', active: activeView === 'tickets', onClick: () => setActiveView('tickets'), badge: mockTickets.filter(t => t.status === 'open').length || undefined },
-        { icon: <ShieldCheck size={20} />, label: 'System Access', description: 'Manage platform administrators and access levels', active: activeView === 'system_access', onClick: () => setActiveView('system_access') },
     ];
 
     return (
         <DashboardLayout
-            title="Global Command"
-            role="Super Administrator"
+            title="Global Admin"
+            role="Platform Administrator"
             sidebarItems={sidebarItems}
-            currentUser={{ name: 'Marcus Global' }}
+            currentUser={{ name: 'Admin User' }}
             onLogout={onLogout}
             onProfileClick={() => setActiveView('profile')}
         >
@@ -844,7 +762,6 @@ export function GlobalCommandDashboard({ onLogout }: { onLogout: () => void }) {
             {activeView === 'maintenance' && <MaintenanceView />}
             {activeView === 'onboarding' && <OnboardingView />}
             {activeView === 'tickets' && <TicketsView />}
-            {activeView === 'system_access' && <SystemUsersView />}
             {activeView === 'profile' && <ProfileSettingsView />}
         </DashboardLayout>
     );

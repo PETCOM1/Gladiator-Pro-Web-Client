@@ -10,8 +10,16 @@ const demoAccounts = [
         label: 'Global Command',
         email: 'admin@gladiator.pro',
         password: 'Gladiator@2025',
-        description: 'Platform-wide oversight',
+        description: 'Super Admin Oversight',
         color: 'brand-cyan',
+    },
+    {
+        role: 'global-admin' as UserRole,
+        label: 'Global Admin',
+        email: 'julius@gladiator.pro',
+        password: 'Gladiator@2025',
+        description: 'Operational Management',
+        color: 'brand-steel',
     },
     {
         role: 'tenant-admin' as UserRole,

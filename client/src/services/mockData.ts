@@ -10,12 +10,14 @@ export const mockCredentials: Record<string, { password: string; userId: string 
     'admin@gladiator.pro': { password: 'Gladiator@2025', userId: '1' },
     'ceo@securecorp.com': { password: 'SecureCorp@2025', userId: '2' },
     'sarah@northsector.com': { password: 'NorthSector@2025', userId: '3' },
+    'julius@gladiator.pro': { password: 'Gladiator@2025', userId: '4' },
 };
 
 export const mockUsers: Record<string, User> = {
     '1': { id: '1', name: 'Marcus Global', email: 'admin@gladiator.pro', role: 'super-admin' },
     '2': { id: '2', name: 'John Tenant', email: 'ceo@securecorp.com', role: 'tenant-admin', tenantId: 'tenant-1' },
     '3': { id: '3', name: 'Sarah Supervisor', email: 'sarah@northsector.com', role: 'site-manager', tenantId: 'tenant-1', siteId: 'site-1' },
+    '4': { id: '4', name: 'Julius Ceasar', email: 'julius@gladiator.pro', role: 'global-admin' },
 };
 
 export const mockTenants: Tenant[] = [
@@ -42,10 +44,10 @@ export const mockOfficers: Officer[] = [
 ];
 
 export const mockCheckpoints: NFCCheckpoint[] = [
-    { id: 'cp-1', siteId: 'site-1', name: 'Gate A – Main Entry', location: 'Ground Floor East', lastScanned: '2m ago', lastScannedBy: 'K. Mthembu', status: 'active' },
-    { id: 'cp-2', siteId: 'site-1', name: 'Perimeter – North Fence', location: 'North Boundary Wall', lastScanned: '8m ago', lastScannedBy: 'L. Zulu', status: 'active' },
-    { id: 'cp-3', siteId: 'site-1', name: 'Loading Bay B', location: 'South West Corner', lastScanned: '15m ago', lastScannedBy: 'T. Ndlovu', status: 'requires-maintenance' },
-    { id: 'cp-4', siteId: 'site-1', name: 'Server Room – Level 3', location: 'Internal High Security', lastScanned: '31m ago', lastScannedBy: 'K. Mthembu', status: 'active' },
+    { id: 'cp-1', siteId: 'site-1', name: 'Gate A – Main Entry', location: 'Ground Floor East', lastScanned: '2m ago', lastScannedBy: 'K. Mthembu', status: 'active', tagIds: Array.from({ length: 12 }, (_, i) => `NFC-G1-E${i + 1}`) },
+    { id: 'cp-2', siteId: 'site-1', name: 'Perimeter – North Fence', location: 'North Boundary Wall', lastScanned: '8m ago', lastScannedBy: 'L. Zulu', status: 'active', tagIds: Array.from({ length: 15 }, (_, i) => `NFC-P1-N${i + 1}`) },
+    { id: 'cp-3', siteId: 'site-1', name: 'Loading Bay B', location: 'South West Corner', lastScanned: '15m ago', lastScannedBy: 'T. Ndlovu', status: 'requires-maintenance', tagIds: Array.from({ length: 10 }, (_, i) => `NFC-L1-B${i + 1}`) },
+    { id: 'cp-4', siteId: 'site-1', name: 'Server Room – Level 3', location: 'Internal High Security', lastScanned: '31m ago', lastScannedBy: 'K. Mthembu', status: 'active', tagIds: Array.from({ length: 11 }, (_, i) => `NFC-S1-R${i + 1}`) },
 ];
 
 export const mockShifts: ShiftAssignment[] = [

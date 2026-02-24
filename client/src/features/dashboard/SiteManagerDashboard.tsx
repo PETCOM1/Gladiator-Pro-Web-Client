@@ -1,40 +1,38 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
     LayoutDashboard, Users, Shield, Clock,
     Map, AlertTriangle, CheckCircle2, XCircle, Radio,
-    Plus, Search, Edit3, Trash2, MapPin, Signal, ChevronRight,
-    Save, X, MoreVertical, Zap
+    Plus, Edit3, Trash2, MapPin, X, Zap, User as UserIcon
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
 import {
     mockCheckpoints as initialCheckpoints,
     mockShifts as initialShifts,
     mockSiteIncidents as initialIncidents,
-    mockOfficers,
-    mockSites
+    mockOfficers
 } from '../../services/mockData';
 import type { NFCCheckpoint, ShiftAssignment, SiteIncident, Officer } from '../../types/user';
+import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
 
 // --- Types ---
-type SiteView = 'operations' | 'shifts' | 'patrols' | 'guards' | 'incidents' | 'orders';
+type SiteView = 'operations' | 'shifts' | 'patrols' | 'guards' | 'incidents' | 'orders' | 'profile';
 
 // --- Shared Components ---
 
-function SectionHeader({ title, sub }: { title: string; sub?: string }) {
-    return (
+function SectionHeader({ sub }: { title?: string; sub?: string }) {
+    return sub ? (
         <div className="mb-6">
-            <h1 className="text-xl font-black text-white uppercase tracking-tight">{title}</h1>
-            {sub && <p className="text-xs text-tactical-muted mt-1">{sub}</p>}
+            <p className="text-xs text-tactical-muted mt-1">{sub}</p>
         </div>
-    );
+    ) : null;
 }
 
 function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-tactical-surface border border-tactical-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+            <div className="bg-tactical-surface/60 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-tactical-border">
                     <h2 className="text-sm font-black text-white uppercase tracking-tight">{title}</h2>
                     <button onClick={onClose} className="text-tactical-muted hover:text-white transition-colors"><X size={18} /></button>
@@ -53,13 +51,18 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     // --- State ---
     const [checkpoints, setCheckpoints] = useState<NFCCheckpoint[]>(initialCheckpoints);
     const [shifts, setShifts] = useState<ShiftAssignment[]>(initialShifts);
-    const [incidents, setIncidents] = useState<SiteIncident[]>(initialIncidents);
+    const [incidents] = useState<SiteIncident[]>(initialIncidents);
     const [siteOfficers] = useState<Officer[]>(mockOfficers.filter(o => o.siteId === 'site-1'));
 
     // --- Modals ---
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [editingShift, setEditingShift] = useState<ShiftAssignment | null>(null);
-    const [isCheckpointModalOpen, setIsCheckpointModalOpen] = useState(false);
+    const [isCPModalOpen, setIsCPModalOpen] = useState(false);
+    const [editingCP, setEditingCP] = useState<NFCCheckpoint | null>(null);
+    const [isTagRegistryOpen, setIsTagRegistryOpen] = useState(false);
+    const [selectedCPForTags, setSelectedCPForTags] = useState<NFCCheckpoint | null>(null);
+    const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
+    const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
 
     // --- Actions ---
     const saveShift = (data: Partial<ShiftAssignment>) => {
@@ -84,10 +87,38 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         setEditingShift(null);
     };
 
-    const toggleCheckpointStatus = (id: string) => {
-        setCheckpoints(prev => prev.map(cp =>
-            cp.id === id ? { ...cp, status: cp.status === 'active' ? 'inactive' : 'active' } : cp
-        ));
+
+    const deleteCheckpoint = (id: string) => {
+        if (confirm('Are you sure you want to decommission this NFC node?')) {
+            setCheckpoints(prev => prev.filter(cp => cp.id !== id));
+        }
+    };
+
+    const saveCheckpoint = (data: Partial<NFCCheckpoint>) => {
+        if (editingCP) {
+            setCheckpoints(prev => prev.map(cp => cp.id === editingCP.id ? { ...cp, ...data } : cp));
+        } else {
+            const newCP: NFCCheckpoint = {
+                id: `cp-${Date.now()}`,
+                siteId: 'site-1',
+                name: data.name || 'New Node',
+                location: data.location || 'Unassigned',
+                status: 'active',
+                lastScanned: 'Never',
+                lastScannedBy: 'N/A',
+                tagIds: []
+            };
+            setCheckpoints(prev => [newCP, ...prev]);
+        }
+        setIsCPModalOpen(false);
+        setEditingCP(null);
+    };
+
+    const updateTagIds = (cpId: string, tagIds: string[]) => {
+        setCheckpoints(prev => prev.map(cp => cp.id === cpId ? { ...cp, tagIds } : cp));
+        if (selectedCPForTags?.id === cpId) {
+            setSelectedCPForTags(prev => prev ? { ...prev, tagIds } : null);
+        }
     };
 
     // --- Views ---
@@ -102,7 +133,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
 
         return (
             <div>
-                <SectionHeader title="Site Command: North Sector Complex" sub="Real-time tactical monitoring" />
+                <SectionHeader sub="Real-time tactical monitoring" />
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {stats.map((s) => {
@@ -127,7 +158,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                         <div className="flex items-center justify-between px-6 py-5 border-b border-tactical-border">
                             <div className="flex items-center gap-3">
                                 <MapPin size={16} className="text-brand-cyan" />
-                                <h2 className="text-sm font-black text-white uppercase tracking-tight">Live NFC Patrol Log</h2>
+                                <h2 className="text-sm font-black text-white uppercase tracking-tight">Live NFC Operations Log</h2>
                             </div>
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
                                 <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
@@ -207,9 +238,14 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     };
 
     const ShiftScheduleView = () => {
+        const [currentPage, setCurrentPage] = useState(1);
+        const PAGE_SIZE = 5;
+
+        const totalPages = Math.ceil(shifts.length / PAGE_SIZE);
+        const paginated = shifts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
         return (
             <div>
-                <SectionHeader title="Shift Management" sub="Deploy personnel and manage tactical rotations" />
+                <SectionHeader sub="Deploy personnel and manage tactical rotations" />
                 <div className="mb-6 flex justify-between items-center">
                     <div className="flex gap-2">
                         {['Day Shift', 'Night Shift', 'Standby'].map(t => (
@@ -231,7 +267,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                         ))}
                     </div>
                     <div className="divide-y divide-tactical-border">
-                        {shifts.map(s => (
+                        {paginated.map(s => (
                             <div key={s.id} className="grid grid-cols-5 px-6 py-5 items-center hover:bg-brand-midnight/20 transition-all group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-brand-midnight border border-tactical-border flex items-center justify-center shrink-0">
@@ -263,6 +299,13 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                         ))}
                     </div>
                 </div>
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={shifts.length}
+                    resultRange={`${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, shifts.length)}`}
+                />
 
                 <Modal isOpen={isShiftModalOpen} onClose={() => setIsShiftModalOpen(false)} title={editingShift ? "Update Tactical Assignment" : "Initialize New Shift"}>
                     <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); saveShift({ officerId: String(formData.get('officerId')), post: String(formData.get('post')), radioChannel: String(formData.get('channel')), startTime: String(formData.get('start')), endTime: String(formData.get('end')) }); }}>
@@ -302,64 +345,441 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     };
 
     const NFCPatrolsView = () => {
+        const [currentPage, setCurrentPage] = useState(1);
+        const [searchQuery, setSearchQuery] = useState('');
+        const [statusFilter, setStatusFilter] = useState<string>('all');
+        const PAGE_SIZE = 5;
+
+        const filtered = checkpoints.filter(cp => {
+            const matchesSearch = cp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                cp.location.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesStatus = statusFilter === 'all' || cp.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+
+        const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+        const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
         return (
             <div>
-                <SectionHeader title="NFC Infrastructure" sub="Manage physical scan points and patrol coverage" />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {checkpoints.map(cp => (
-                        <div key={cp.id} className="bg-tactical-surface border border-tactical-border rounded-2xl p-6 hover:border-brand-cyan/30 transition-all group">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-brand-midnight border border-tactical-border flex items-center justify-center group-hover:border-brand-cyan/20">
-                                    <Zap size={20} className={cn(cp.status === 'active' ? "text-brand-cyan" : "text-red-400")} />
+                <SectionHeader sub="Manage physical scan points and patrol coverage" />
+
+                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                    <div className="relative flex-1">
+                        <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
+                        <input
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Search nodes or locations..."
+                            className="w-full bg-tactical-surface border border-tactical-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-cyan/50"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        {['all', 'active', 'inactive', 'requires-maintenance'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setStatusFilter(f)}
+                                className={cn(
+                                    "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                    statusFilter === f ? "bg-brand-cyan text-brand-midnight border-brand-cyan" : "bg-tactical-surface border-tactical-border text-tactical-muted hover:border-brand-cyan/30"
+                                )}
+                            >
+                                {f.replace('-', ' ')}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={() => { setEditingCP(null); setIsCPModalOpen(true); }}
+                        className="px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,194,255,0.15)] flex items-center gap-2"
+                    >
+                        <Plus size={14} /> Provision Node
+                    </button>
+                </div>
+
+                <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
+                    <div className="grid grid-cols-7 px-6 py-4 border-b border-tactical-border/50 bg-brand-midnight/30">
+                        {['NFC Node', 'Location', 'Last Scan', 'Operator', 'Status', 'Tags', 'Actions'].map(h => (
+                            <span key={h} className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">{h}</span>
+                        ))}
+                    </div>
+                    <div className="divide-y divide-tactical-border">
+                        {paginated.map(cp => (
+                            <div key={cp.id} className="grid grid-cols-7 px-6 py-5 items-center hover:bg-brand-midnight/20 transition-all group">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-midnight border border-tactical-border flex items-center justify-center shrink-0">
+                                        <Zap size={14} className={cp.status === 'active' ? "text-brand-cyan" : "text-red-400"} />
+                                    </div>
+                                    <span className="text-xs font-bold text-white truncate">{cp.name}</span>
                                 </div>
-                                <button
-                                    onClick={() => toggleCheckpointStatus(cp.id)}
-                                    className={cn(
-                                        "px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border transition-all",
+                                <span className="text-xs text-tactical-muted truncate">{cp.location}</span>
+                                <span className="text-xs text-white">{cp.lastScanned || 'Never'}</span>
+                                <span className="text-xs text-brand-cyan/80">{cp.lastScannedBy || 'N/A'}</span>
+                                <div className="flex items-center justify-start">
+                                    <span className={cn(
+                                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border",
                                         cp.status === 'active' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"
-                                    )}
-                                >
-                                    {cp.status}
+                                    )}>{cp.status}</span>
+                                </div>
+                                <div>
+                                    <button
+                                        onClick={() => { setSelectedCPForTags(cp); setIsTagRegistryOpen(true); }}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-2 py-1 rounded border transition-all",
+                                            (cp.tagIds?.length || 0) >= 10 && (cp.tagIds?.length || 0) <= 15
+                                                ? "bg-brand-cyan/10 border-brand-cyan/20 text-brand-cyan hover:bg-brand-cyan/20"
+                                                : "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+                                        )}
+                                    >
+                                        <Radio size={10} />
+                                        <span className="text-[10px] font-black">{cp.tagIds?.length || 0} IDs</span>
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => { setEditingCP(cp); setIsCPModalOpen(true); }}
+                                        className="p-2 rounded-lg bg-brand-midnight border border-tactical-border hover:border-brand-cyan/40 text-brand-cyan transition-all"
+                                    >
+                                        <Edit3 size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => deleteCheckpoint(cp.id)}
+                                        className="p-2 rounded-lg bg-brand-midnight border border-tactical-border hover:border-red-500/40 text-red-400 transition-all"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {paginated.length === 0 && (
+                            <div className="px-6 py-12 text-center text-tactical-muted text-sm italic">No NFC nodes found in this sector.</div>
+                        )}
+                    </div>
+                </div>
+
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={filtered.length}
+                    resultRange={filtered.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}` : '0 - 0'}
+                />
+
+                <Modal isOpen={isCPModalOpen} onClose={() => setIsCPModalOpen(false)} title={editingCP ? "Modify NFC Node" : "Provision New NFC Node"}>
+                    <form className="space-y-4" onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        saveCheckpoint({
+                            name: String(formData.get('name')),
+                            location: String(formData.get('location'))
+                        });
+                    }}>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Node Designation</label>
+                            <input name="name" defaultValue={editingCP?.name} placeholder="Gate B - Entry" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" required />
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Physical Location</label>
+                            <input name="location" defaultValue={editingCP?.location} placeholder="Level 1, East Wing" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" required />
+                        </div>
+                        <button type="submit" className="w-full bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-4 rounded-xl hover:scale-[1.02] transition-all">
+                            {editingCP ? "Commit Node Updates" : "Initialize NFC Provisioning"}
+                        </button>
+                    </form>
+                </Modal>
+
+                <Modal isOpen={isTagRegistryOpen} onClose={() => setIsTagRegistryOpen(false)} title={`Tag Registry: ${selectedCPForTags?.name}`}>
+                    <div className="space-y-6">
+                        <div className="p-4 bg-brand-midnight border border-tactical-border rounded-xl">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-black text-tactical-muted uppercase tracking-widest">Compliance Status</span>
+                                <span className={cn(
+                                    "text-[10px] font-black uppercase px-2 py-0.5 rounded border",
+                                    (selectedCPForTags?.tagIds?.length || 0) >= 10 && (selectedCPForTags?.tagIds?.length || 0) <= 15
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                        : "bg-red-500/10 text-red-400 border-red-500/20"
+                                )}>
+                                    {(selectedCPForTags?.tagIds?.length || 0) >= 10 && (selectedCPForTags?.tagIds?.length || 0) <= 15 ? 'Compliant' : 'Non-Compliant'}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-tactical-muted italic">Each NFC node must contain between 10 and 15 unique hardware tag IDs.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest block">Register Hardware ID</label>
+                            <form className="flex gap-2" onSubmit={(e) => {
+                                e.preventDefault();
+                                const input = e.currentTarget.elements.namedItem('tagId') as HTMLInputElement;
+                                if (input.value && selectedCPForTags) {
+                                    if ((selectedCPForTags.tagIds?.length || 0) >= 15) {
+                                        alert('Maximum capacity of 15 Tag IDs reached for this node.');
+                                        return;
+                                    }
+                                    const newTags = [...(selectedCPForTags.tagIds || []), input.value];
+                                    updateTagIds(selectedCPForTags.id, newTags);
+                                    input.value = '';
+                                }
+                            }}>
+                                <input name="tagId" placeholder="Scan or type Hardware ID..." className="flex-1 bg-brand-midnight border border-tactical-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[42px]" />
+                                <button type="submit" className="px-4 bg-brand-cyan text-brand-midnight rounded-xl hover:scale-105 transition-all"><Plus size={18} /></button>
+                            </form>
+                        </div>
+
+                        <div className="bg-brand-midnight border border-tactical-border rounded-xl max-h-[240px] overflow-y-auto scrollbar-hide">
+                            <div className="divide-y divide-tactical-border/50">
+                                {selectedCPForTags?.tagIds?.map((tid, idx) => (
+                                    <div key={idx} className="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] font-black text-brand-cyan/40">#{idx + 1}</span>
+                                            <span className="text-xs font-bold text-white tracking-wider font-mono">{tid}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (selectedCPForTags) {
+                                                    const newTags = selectedCPForTags.tagIds?.filter(t => t !== tid) || [];
+                                                    updateTagIds(selectedCPForTags.id, newTags);
+                                                }
+                                            }}
+                                            className="text-tactical-muted hover:text-red-400 transition-colors"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {(!selectedCPForTags?.tagIds || selectedCPForTags.tagIds.length === 0) && (
+                                    <div className="p-8 text-center text-tactical-muted text-xs italic">No hardware IDs registered to this node.</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-tactical-border/50">
+                            <span className="text-[10px] font-black text-tactical-muted uppercase">Registry Load</span>
+                            <span className="text-[10px] font-black text-white">{selectedCPForTags?.tagIds?.length || 0} / 15</span>
+                        </div>
+                    </div>
+                </Modal>
+            </div>
+        );
+    };
+
+    const PersonnelRegistryView = () => {
+        const [currentPage, setCurrentPage] = useState(1);
+        const [searchQuery, setSearchQuery] = useState('');
+        const [roleFilter, setRoleFilter] = useState<string>('all');
+        const PAGE_SIZE = 5;
+
+        const filtered = siteOfficers.filter(o => {
+            const matchesSearch = o.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                o.role.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesRole = roleFilter === 'all' || o.role.toLowerCase().includes(roleFilter.toLowerCase());
+            return matchesSearch && matchesRole;
+        });
+
+        const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+        const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+        return (
+            <div>
+                <SectionHeader sub="Real-time GPS tracking and biometric health monitoring registry" />
+
+                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                    <div className="relative flex-1">
+                        <Users size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
+                        <input
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Search by name or callsign..."
+                            className="w-full bg-tactical-surface border border-tactical-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-cyan/50"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        {['all', 'Supervisor', 'Lead', 'Officer'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setRoleFilter(f)}
+                                className={cn(
+                                    "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                    roleFilter === f ? "bg-brand-cyan text-brand-midnight border-brand-cyan" : "bg-tactical-surface border-tactical-border text-tactical-muted hover:border-brand-cyan/30"
+                                )}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
+                    <div className="grid grid-cols-5 px-6 py-4 border-b border-tactical-border/50 bg-brand-midnight/30">
+                        {['Personnel', 'Tactical Role', 'Status', 'Current Post', 'Actions'].map(h => (
+                            <span key={h} className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">{h}</span>
+                        ))}
+                    </div>
+                    <div className="divide-y divide-tactical-border">
+                        {paginated.map(officer => (
+                            <div key={officer.id} className="grid grid-cols-5 px-6 py-5 items-center hover:bg-brand-midnight/20 transition-all group">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-midnight border border-tactical-border flex items-center justify-center shrink-0">
+                                        <UserIcon size={14} className="text-brand-cyan/60" />
+                                    </div>
+                                    <span className="text-sm font-bold text-white">{officer.name}</span>
+                                </div>
+                                <span className="text-xs text-tactical-muted uppercase tracking-widest font-black">{officer.role}</span>
+                                <div className="flex items-center gap-2">
+                                    <div className={cn(
+                                        "w-1.5 h-1.5 rounded-full animate-pulse",
+                                        officer.status === 'on-duty' ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]" : "bg-tactical-muted"
+                                    )} />
+                                    <span className={cn(
+                                        "text-[10px] font-black uppercase tracking-widest",
+                                        officer.status === 'on-duty' ? "text-emerald-400" : "text-tactical-muted"
+                                    )}>{officer.status}</span>
+                                </div>
+                                <span className="text-xs text-white uppercase tracking-tighter">
+                                    {shifts.find(s => s.officerId === officer.id)?.post || 'Standby'}
+                                </span>
+                                <div>
+                                    <button
+                                        onClick={() => { setSelectedOfficer(officer); setIsPersonnelModalOpen(true); }}
+                                        className="text-[10px] font-black text-brand-cyan uppercase tracking-widest hover:underline"
+                                    >
+                                        View Profile →
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {paginated.length === 0 && (
+                            <div className="px-6 py-12 text-center text-tactical-muted text-sm italic">No personnel found matching these criteria.</div>
+                        )}
+                    </div>
+                </div>
+
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={filtered.length}
+                    resultRange={filtered.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}` : '0 - 0'}
+                />
+
+                <Modal isOpen={isPersonnelModalOpen} onClose={() => setIsPersonnelModalOpen(false)} title="Tactical Personnel Profile">
+                    {selectedOfficer && (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-4 p-4 bg-brand-midnight border border-tactical-border rounded-xl">
+                                <div className="w-16 h-16 rounded-xl border border-brand-cyan/30 flex items-center justify-center bg-brand-midnight text-brand-cyan">
+                                    <UserIcon size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-black text-white uppercase tracking-tight">{selectedOfficer.name}</h3>
+                                    <p className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">{selectedOfficer.role}</p>
+                                    <p className="text-[9px] text-tactical-muted mt-1">ID: {selectedOfficer.id.toUpperCase()}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-brand-midnight/50 border border-tactical-border/50 rounded-xl p-3">
+                                    <span className="text-[9px] font-black text-tactical-muted uppercase block mb-1">Duty Status</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className={cn("w-1.5 h-1.5 rounded-full", selectedOfficer.status === 'on-duty' ? "bg-emerald-400" : "bg-tactical-muted")} />
+                                        <span className="text-xs font-bold text-white capitalize">{selectedOfficer.status.replace('-', ' ')}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-brand-midnight/50 border border-tactical-border/50 rounded-xl p-3">
+                                    <span className="text-[9px] font-black text-tactical-muted uppercase block mb-1">Shift Duration</span>
+                                    <span className="text-xs font-bold text-white">{selectedOfficer.shiftStart || '--:--'} - {selectedOfficer.shiftEnd || '--:--'}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-[10px] font-black text-tactical-muted uppercase tracking-widest">Biometric Status</h4>
+                                <div className="space-y-2">
+                                    {[
+                                        { label: 'Pulse Rate', value: '72 BPM', status: 'optimal' },
+                                        { label: 'Body Temp', value: '36.6°C', status: 'optimal' },
+                                        { label: 'GPS Sync', value: 'Active', status: 'optimal' }
+                                    ].map(b => (
+                                        <div key={b.label} className="flex items-center justify-between px-3 py-2 bg-brand-midnight/30 border border-tactical-border/30 rounded-lg">
+                                            <span className="text-[10px] text-tactical-muted">{b.label}</span>
+                                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter">{b.value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-tactical-border/50 flex gap-3">
+                                <button className="flex-1 bg-brand-cyan/10 border border-brand-cyan/20 py-2.5 rounded-xl text-[10px] font-black text-brand-cyan uppercase tracking-widest hover:bg-brand-cyan/20 transition-all">Direct Comms</button>
+                                <button className="flex-1 bg-brand-midnight border border-tactical-border py-2.5 rounded-xl text-[10px] font-black text-tactical-muted uppercase tracking-widest hover:text-white transition-all">Full Dossier</button>
+                            </div>
+                        </div>
+                    )}
+                </Modal>
+            </div>
+        );
+    };
+
+    const ProfileSettingsView = () => {
+        return (
+            <div>
+                <SectionHeader sub="Manage your personal profile and account security" />
+                <div className="max-w-4xl space-y-6">
+                    <div className="bg-tactical-surface border border-tactical-border rounded-2xl p-8">
+                        <div className="flex items-center gap-6 mb-8">
+                            <div className="relative w-24 h-24">
+                                <div className="w-full h-full rounded-2xl border-2 border-brand-cyan overflow-hidden bg-brand-midnight flex items-center justify-center shadow-[0_0_30px_rgba(0,194,255,0.1)]">
+                                    <UserIcon size={40} className="text-brand-cyan/40" />
+                                </div>
+                                <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-brand-cyan rounded-lg flex items-center justify-center text-brand-midnight shadow-lg hover:scale-110 transition-all border-2 border-brand-midnight">
+                                    <Edit3 size={14} />
                                 </button>
                             </div>
-                            <h3 className="text-lg font-bold text-white mb-1 uppercase tracking-tight">{cp.name}</h3>
-                            <div className="flex items-center gap-2 text-tactical-muted text-xs mb-4">
-                                <MapPin size={12} />
-                                <span>{cp.location}</span>
+                            <div>
+                                <h2 className="text-xl font-black text-white uppercase tracking-tight">Marcus Aurelius</h2>
+                                <p className="text-xs text-brand-cyan font-black uppercase tracking-widest mt-1">Site Manager</p>
+                                <p className="text-[10px] text-tactical-muted mt-2">Member since Oct 2023 • ID: GP-SM-001</p>
                             </div>
-
-                            <div className="space-y-3 pt-4 border-t border-tactical-border/50">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">Last Scan</span>
-                                    <span className="text-xs font-bold text-white">{cp.lastScanned || 'Never'}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">Operator</span>
-                                    <span className="text-xs text-brand-cyan/80">{cp.lastScannedBy || 'N/A'}</span>
-                                </div>
-                            </div>
-
-                            <button className="w-full mt-6 py-2.5 rounded-xl border border-tactical-border text-[9px] font-black uppercase tracking-widest text-tactical-muted hover:border-brand-cyan/40 hover:text-brand-cyan transition-all">
-                                View Full History
-                            </button>
                         </div>
-                    ))}
-                    <button className="bg-brand-midnight/30 border-2 border-dashed border-tactical-border rounded-2xl p-6 flex flex-col items-center justify-center gap-3 text-tactical-muted hover:border-brand-cyan/30 hover:text-brand-cyan transition-all">
-                        <Plus size={32} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Provision New NFC Node</span>
-                    </button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Full Name</label>
+                                    <input type="text" defaultValue="Marcus Aurelius" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Email Address</label>
+                                    <input type="email" defaultValue="m.aurelius@gladiator-pro.com" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Callsign</label>
+                                    <input type="text" defaultValue="CENTURION" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Duty Status</label>
+                                    <div className="flex items-center gap-2 bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-widest">Active Duty / Online</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-tactical-border flex justify-end gap-3">
+                            <button className="px-6 py-2 border border-tactical-border text-tactical-muted text-[10px] font-black uppercase tracking-widest rounded-xl hover:border-brand-cyan/30 hover:text-white transition-all">Reset Password</button>
+                            <button className="px-8 py-2 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all">Update Profile</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     };
 
     const sidebarItems = [
-        { icon: <LayoutDashboard size={20} />, label: 'Site Operations', active: activeView === 'operations', onClick: () => setActiveView('operations') },
-        { icon: <Clock size={20} />, label: 'Shift Schedule', active: activeView === 'shifts', onClick: () => setActiveView('shifts'), badge: shifts.length },
-        { icon: <Map size={20} />, label: 'NFC Patrols', active: activeView === 'patrols', onClick: () => setActiveView('patrols') },
-        { icon: <Users size={20} />, label: 'Active Guards', active: activeView === 'guards', onClick: () => setActiveView('guards') },
-        { icon: <Shield size={20} />, label: 'Post Orders', active: activeView === 'orders', onClick: () => setActiveView('orders') },
-        { icon: <AlertTriangle size={20} />, label: 'Incidents', active: activeView === 'incidents', onClick: () => setActiveView('incidents'), badge: incidents.filter(i => i.status === 'open').length },
+        { icon: <LayoutDashboard size={20} />, label: 'Site Operations', description: 'Real-time tactical monitoring', active: activeView === 'operations', onClick: () => setActiveView('operations') },
+        { icon: <Clock size={20} />, label: 'Shift Schedule', description: 'Deploy personnel and manage tactical rotations', active: activeView === 'shifts', onClick: () => setActiveView('shifts'), badge: shifts.length },
+        { icon: <Map size={20} />, label: 'NFC Control', description: 'Manage physical scan points and patrol coverage', active: activeView === 'patrols', onClick: () => setActiveView('patrols') },
+        { icon: <Users size={20} />, label: 'Active Guards', description: 'Real-time GPS tracking and biometric health monitoring', active: activeView === 'guards', onClick: () => setActiveView('guards') },
+        { icon: <Shield size={20} />, label: 'Post Orders', description: 'Digital directive distribution for this sector', active: activeView === 'orders', onClick: () => setActiveView('orders') },
+        { icon: <AlertTriangle size={20} />, label: 'Incidents', description: 'Log and track site-specific security breaches', active: activeView === 'incidents', onClick: () => setActiveView('incidents'), badge: incidents.filter(i => i.status === 'open').length },
     ];
 
     return (
@@ -369,17 +789,12 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
             sidebarItems={sidebarItems}
             currentUser={{ name: 'Sarah Supervisor' }}
             onLogout={onLogout}
+            onProfileClick={() => setActiveView('profile')}
         >
             {activeView === 'operations' && <OperationsView />}
             {activeView === 'shifts' && <ShiftScheduleView />}
             {activeView === 'patrols' && <NFCPatrolsView />}
-            {activeView === 'guards' && (
-                <div className="flex flex-col items-center justify-center p-20 text-center">
-                    <Users size={48} className="text-tactical-muted mb-4 opacity-30" />
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight">Active Guard Roster</h2>
-                    <p className="text-sm text-tactical-muted max-w-sm mt-2">Real-time GPS tracking and biometric health monitoring interface is currently in provisioning.</p>
-                </div>
-            )}
+            {activeView === 'guards' && <PersonnelRegistryView />}
             {activeView === 'orders' && (
                 <div className="p-12 text-center bg-tactical-surface border border-tactical-border rounded-3xl">
                     <Shield size={42} className="text-brand-cyan mx-auto mb-4 opacity-50" />
@@ -388,44 +803,68 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                 </div>
             )}
             {activeView === 'incidents' && (
-                <div>
-                    <SectionHeader title="Incident Command" sub="Log and track site-specific security breaches" />
-                    <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
-                        <div className="divide-y divide-tactical-border">
-                            {incidents.map(inc => (
-                                <div key={inc.id} className="p-6 hover:bg-brand-midnight/20 transition-all group">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-xl flex items-center justify-center border shrink-0",
-                                                inc.severity === 'critical' || inc.severity === 'high' ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20"
-                                            )}>
-                                                <AlertTriangle size={20} className={inc.severity === 'critical' || inc.severity === 'high' ? "text-red-400" : "text-amber-400"} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-black text-white uppercase tracking-tight">{inc.reference}</h3>
-                                                <p className="text-[10px] text-tactical-muted uppercase tracking-widest">Reported by {inc.reportedBy}</p>
-                                            </div>
-                                        </div>
-                                        <span className={cn(
-                                            "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                                            inc.status === 'open' ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                        )}>{inc.status}</span>
+                <IncidentsView incidents={incidents} />
+            )}
+            {activeView === 'profile' && <ProfileSettingsView />}
+        </DashboardLayout>
+    );
+}
+// --- Sub-Views ---
+
+function IncidentsView({ incidents }: { incidents: SiteIncident[] }) {
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 4;
+
+    const totalPages = Math.ceil(incidents.length / PAGE_SIZE);
+    const paginated = incidents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    return (
+        <div>
+            <SectionHeader sub="Log and track site-specific security breaches" />
+            <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
+                <div className="divide-y divide-tactical-border">
+                    {paginated.map(inc => (
+                        <div key={inc.id} className="p-6 hover:bg-brand-midnight/20 transition-all group">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                        "w-10 h-10 rounded-xl flex items-center justify-center border shrink-0",
+                                        inc.severity === 'critical' || inc.severity === 'high' ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20"
+                                    )}>
+                                        <AlertTriangle size={20} className={inc.severity === 'critical' || inc.severity === 'high' ? "text-red-400" : "text-amber-400"} />
                                     </div>
-                                    <p className="text-sm font-bold text-white mb-4 line-clamp-2">{inc.description}</p>
-                                    <div className="flex items-center justify-between border-t border-tactical-border/50 pt-4">
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-[10px] font-black text-tactical-muted uppercase tracking-tight">Severity: <span className={inc.severity === 'critical' ? 'text-red-500' : 'text-amber-400'}>{inc.severity}</span></span>
-                                            <span className="text-[10px] font-black text-tactical-muted uppercase tracking-tight">{inc.timestamp}</span>
-                                        </div>
-                                        <button className="text-[9px] font-black text-brand-cyan uppercase tracking-widest hover:underline">Manage Resolution →</button>
+                                    <div>
+                                        <h3 className="text-sm font-black text-white uppercase tracking-tight">{inc.reference}</h3>
+                                        <p className="text-[10px] text-tactical-muted uppercase tracking-widest">Reported by {inc.reportedBy}</p>
                                     </div>
                                 </div>
-                            ))}
+                                <span className={cn(
+                                    "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                                    inc.status === 'open' ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                )}>{inc.status}</span>
+                            </div>
+                            <p className="text-sm font-bold text-white mb-4 line-clamp-2">{inc.description}</p>
+                            <div className="flex items-center justify-between border-t border-tactical-border/50 pt-4">
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[10px] font-black text-tactical-muted uppercase tracking-tight">Severity: <span className={inc.severity === 'critical' ? 'text-red-500' : 'text-amber-400'}>{inc.severity}</span></span>
+                                    <span className="text-[10px] font-black text-tactical-muted uppercase tracking-tight">{inc.timestamp}</span>
+                                </div>
+                                <button className="text-[9px] font-black text-brand-cyan uppercase tracking-widest hover:underline">Manage Resolution →</button>
+                            </div>
                         </div>
-                    </div>
+                    ))}
+                    {paginated.length === 0 && (
+                        <div className="px-6 py-12 text-center text-tactical-muted text-sm">No incidents on record.</div>
+                    )}
                 </div>
-            )}
-        </DashboardLayout>
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={incidents.length}
+                    resultRange={incidents.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, incidents.length)}` : '0 - 0'}
+                />
+            </div>
+        </div>
     );
 }

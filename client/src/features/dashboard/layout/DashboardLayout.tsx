@@ -38,6 +38,7 @@ interface DashboardLayoutProps {
     };
     onLogout: () => void;
     onSettings?: () => void;
+    onProfileClick?: () => void;
 }
 
 export function DashboardLayout({
@@ -47,7 +48,8 @@ export function DashboardLayout({
     sidebarItems,
     currentUser,
     onLogout,
-    onSettings
+    onSettings,
+    onProfileClick
 }: DashboardLayoutProps) {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -75,7 +77,7 @@ export function DashboardLayout({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
                         onClick={toggleMobileMenu}
                     />
                 )}
@@ -117,24 +119,27 @@ export function DashboardLayout({
                     </div>
 
                     {/* User Profile info */}
-                    <div className={cn(
-                        "mb-10 text-center flex flex-col items-center w-full transition-all duration-300",
-                        isCollapsed ? "mb-6" : "mb-10"
-                    )}>
+                    <button
+                        onClick={onProfileClick}
+                        className={cn(
+                            "mb-10 text-center flex flex-col items-center w-full transition-all duration-300 hover:opacity-80 group/profile",
+                            isCollapsed ? "mb-6" : "mb-10"
+                        )}
+                    >
                         <div className={cn(
                             "relative group mb-4",
-                            isCollapsed ? "w-12 h-12" : "w-20 h-20"
+                            isCollapsed ? "w-10 h-10" : "w-14 h-14"
                         )}>
                             <div className={cn(
-                                "rounded-2xl border-2 border-brand-steel overflow-hidden shadow-2xl transition-all duration-300 group-hover:scale-105 group-hover:border-brand-cyan bg-brand-steel flex items-center justify-center w-full h-full",
+                                "rounded-2xl border-2 border-brand-steel overflow-hidden shadow-2xl transition-all duration-300 group-hover/profile:scale-105 group-hover/profile:border-brand-cyan bg-brand-steel flex items-center justify-center w-full h-full",
                             )}>
                                 {currentUser?.avatar ? (
                                     <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
                                 ) : (
-                                    <User className={cn("text-brand-cyan/40", isCollapsed ? "w-6 h-6" : "w-10 h-10")} />
+                                    <User className={cn("text-brand-cyan/40", isCollapsed ? "w-5 h-5" : "w-8 h-8")} />
                                 )}
                             </div>
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-brand-cyan border-2 border-brand-midnight rounded-full shadow-lg shadow-brand-cyan/20" />
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-brand-cyan border-2 border-brand-midnight rounded-full shadow-lg shadow-brand-cyan/20" />
                         </div>
                         {!isCollapsed && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-500">
@@ -142,7 +147,7 @@ export function DashboardLayout({
                                 <p className="text-[10px] text-brand-cyan font-black uppercase tracking-[0.2em]">{role}</p>
                             </div>
                         )}
-                    </div>
+                    </button>
 
                     {/* Navigation */}
                     <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar w-full">

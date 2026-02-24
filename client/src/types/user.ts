@@ -1,4 +1,4 @@
-export type UserRole = 'super-admin' | 'tenant-admin' | 'site-manager';
+export type UserRole = 'super-admin' | 'global-admin' | 'tenant-admin' | 'site-manager';
 
 export interface User {
     id: string;
@@ -52,6 +52,7 @@ export interface NFCCheckpoint {
     lastScanned?: string;
     lastScannedBy?: string;
     status: 'active' | 'inactive' | 'requires-maintenance';
+    tagIds?: string[]; // Array of unique NFC Tag IDs within this node
 }
 
 export interface ShiftAssignment {
