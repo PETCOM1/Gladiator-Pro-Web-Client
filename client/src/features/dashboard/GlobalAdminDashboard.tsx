@@ -58,8 +58,8 @@ function SectionHeader({ sub }: { title?: string; sub?: string }) {
 function Badge({ label, color }: { label: string; color: string }) {
     return <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${color}`}>{label}</span>;
 }
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-    return <div className={`bg-tactical-surface border border-tactical-border rounded-2xl ${className}`}>{children}</div>;
+function Card({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void }) {
+    return <div onClick={onClick} className={`bg-tactical-surface border border-tactical-border rounded-2xl ${className}`}>{children}</div>;
 }
 function TableHeader({ cols }: { cols: string[] }) {
     return (
@@ -220,8 +220,14 @@ function TenantsView() {
             </div>
 
             {showAddModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-300">
-                    <Card className="w-full max-w-xl p-8 relative animate-in zoom-in-95 duration-300 bg-tactical-surface/60 backdrop-blur-xl border-white/10">
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-300"
+                    onClick={() => setShowAddModal(false)}
+                >
+                    <Card
+                        className="w-full max-w-xl p-8 relative animate-in zoom-in-95 duration-300 bg-tactical-surface/60 backdrop-blur-xl border-white/10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <button onClick={() => setShowAddModal(false)} className="absolute top-6 right-6 text-tactical-muted hover:text-white transition-colors">
                             <X size={20} />
                         </button>

@@ -52,13 +52,40 @@ export function DashboardLayout({
     onProfileClick
 }: DashboardLayoutProps) {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+
+    // Logical expanded state: manually expanded OR hovered while collapsed
+    const isExpanded = !isCollapsed || isHovered;
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+
+        // Responsive sidebar behavior
+        let lastWidth = window.innerWidth;
+        const handleResize = () => {
+            const currentWidth = window.innerWidth;
+
+            // Only auto-trigger when crossing major breakpoints
+            if (currentWidth >= 1280 && lastWidth < 1280) {
+                setIsCollapsed(true);
+            } else if (currentWidth < 1280 && currentWidth >= 768 && (lastWidth >= 1280 || lastWidth < 768)) {
+                setIsCollapsed(false);
+            }
+
+            lastWidth = currentWidth;
+        };
+
+        // Initial check
+        handleResize();
+
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
     const toggleSidebar = () => setIsCollapsed(!isCollapsed);
@@ -86,7 +113,9 @@ export function DashboardLayout({
             {/* Sidebar */}
             <motion.aside
                 initial={false}
-                animate={{ width: isCollapsed ? 96 : 288 }}
+                animate={{ width: isExpanded ? 288 : 96 }}
+                onMouseEnter={() => isCollapsed && setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 className={cn(
                     "fixed inset-y-0 left-0 z-50 md:relative flex flex-col bg-brand-midnight text-white transition-all duration-300 ease-in-out border-r border-tactical-border",
                     isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
@@ -94,14 +123,14 @@ export function DashboardLayout({
             >
                 <div className={cn(
                     "flex flex-col h-full",
-                    isCollapsed ? "items-center py-8" : "p-8"
+                    !isExpanded ? "items-center py-8" : "p-8"
                 )}>
                     {/* Logo */}
                     <div className={cn(
                         "flex items-center mb-10 transition-all duration-300",
-                        isCollapsed ? "justify-center" : "justify-start"
+                        !isExpanded ? "justify-center" : "justify-start"
                     )}>
-                        {isCollapsed ? (
+                        {!isExpanded ? (
                             <div className="w-10 h-10 rounded-full bg-brand-midnight border border-brand-cyan/30 flex items-center justify-center shadow-[0_0_16px_rgba(0,194,255,0.15)] overflow-hidden">
                                 <img src={logo} alt="Gladiator" className="w-full h-full object-cover rounded-full" />
                             </div>
@@ -123,12 +152,12 @@ export function DashboardLayout({
                         onClick={onProfileClick}
                         className={cn(
                             "mb-10 text-center flex flex-col items-center w-full transition-all duration-300 hover:opacity-80 group/profile",
-                            isCollapsed ? "mb-6" : "mb-10"
+                            !isExpanded ? "mb-6" : "mb-10"
                         )}
                     >
                         <div className={cn(
                             "relative group mb-4",
-                            isCollapsed ? "w-10 h-10" : "w-14 h-14"
+                            !isExpanded ? "w-10 h-10" : "w-14 h-14"
                         )}>
                             <div className={cn(
                                 "rounded-2xl border-2 border-brand-steel overflow-hidden shadow-2xl transition-all duration-300 group-hover/profile:scale-105 group-hover/profile:border-brand-cyan bg-brand-steel flex items-center justify-center w-full h-full",
@@ -136,12 +165,12 @@ export function DashboardLayout({
                                 {currentUser?.avatar ? (
                                     <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
                                 ) : (
-                                    <User className={cn("text-brand-cyan/40", isCollapsed ? "w-5 h-5" : "w-8 h-8")} />
+                                    <User className={cn("text-brand-cyan/40", !isExpanded ? "w-5 h-5" : "w-8 h-8")} />
                                 )}
                             </div>
                             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-brand-cyan border-2 border-brand-midnight rounded-full shadow-lg shadow-brand-cyan/20" />
                         </div>
-                        {!isCollapsed && (
+                        {isExpanded && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-500">
                                 <h3 className="font-bold text-lg text-white mb-0.5">{currentUser?.name || "Marcus Aurelius"}</h3>
                                 <p className="text-[10px] text-brand-cyan font-black uppercase tracking-[0.2em]">{role}</p>
@@ -150,7 +179,7 @@ export function DashboardLayout({
                     </button>
 
                     {/* Navigation */}
-                    <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar w-full">
+                    <nav className="flex-1 space-y-2 overflow-y-auto scrollbar-tactical w-full">
                         {sidebarItems.map((item, index) => (
                             <button
                                 key={index}
@@ -160,20 +189,30 @@ export function DashboardLayout({
                                 }}
                                 className={cn(
                                     "flex items-center transition-all duration-300 rounded-xl group w-full relative h-12",
-                                    isCollapsed ? "justify-center px-0" : "px-4 gap-4",
+                                    !isExpanded ? "justify-center px-0" : "px-4 gap-4",
                                     item.active
                                         ? "bg-brand-steel text-brand-cyan shadow-[0_0_20px_rgba(0,194,255,0.1)] border border-brand-cyan/20"
                                         : "text-white/40 hover:text-white hover:bg-white/5"
                                 )}
-                                title={isCollapsed ? item.label : undefined}
+                                title={!isExpanded ? item.label : undefined}
                             >
+                                {/* Active Indicator */}
+                                {item.active && (
+                                    <motion.div
+                                        layoutId="active-nav-indicator"
+                                        className="absolute left-0 w-1 h-6 bg-brand-cyan rounded-r-full shadow-[0_0_10px_rgba(0,194,255,0.5)]"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                    />
+                                )}
+
                                 <div className={cn(
                                     "transition-transform duration-300",
                                     item.active ? "scale-110" : "group-hover:scale-110 group-hover:rotate-3"
                                 )}>
                                     {item.icon}
                                 </div>
-                                {!isCollapsed && (
+                                {isExpanded && (
                                     <span className="text-sm font-bold truncate">{item.label}</span>
                                 )}
 
@@ -181,7 +220,7 @@ export function DashboardLayout({
                                 {item.badge !== undefined && item.badge > 0 && (
                                     <div className={cn(
                                         "absolute flex items-center justify-center bg-brand-cyan text-brand-midnight text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 shadow-[0_0_10px_rgba(0,194,255,0.4)]",
-                                        isCollapsed ? "top-2 right-2" : "right-4"
+                                        !isExpanded ? "top-2 right-2" : "right-4"
                                     )}>
                                         {item.badge}
                                     </div>
@@ -197,24 +236,24 @@ export function DashboardLayout({
                             size="icon"
                             className={cn(
                                 "rounded-xl text-white/40 hover:text-brand-cyan transition-all h-12",
-                                isCollapsed ? "w-12 mx-auto" : "w-full justify-start px-4 gap-4"
+                                !isExpanded ? "w-12 mx-auto" : "w-full justify-start px-4 gap-4"
                             )}
                             onClick={onSettings}
                         >
                             <Settings className="w-5 h-5" />
-                            {!isCollapsed && <span className="text-sm font-bold">Settings</span>}
+                            {isExpanded && <span className="text-sm font-bold">Settings</span>}
                         </Button>
                         <Button
                             variant="ghost"
                             size="icon"
                             className={cn(
                                 "rounded-xl text-white/40 hover:text-red-400 hover:bg-red-500/5 transition-all h-12",
-                                isCollapsed ? "w-12 mx-auto" : "w-full justify-start px-4 gap-4"
+                                !isExpanded ? "w-12 mx-auto" : "w-full justify-start px-4 gap-4"
                             )}
                             onClick={onLogout}
                         >
                             <LogOut className="w-5 h-5" />
-                            {!isCollapsed && <span className="text-sm font-bold">Logout</span>}
+                            {isExpanded && <span className="text-sm font-bold">Logout</span>}
                         </Button>
                     </div>
                 </div>

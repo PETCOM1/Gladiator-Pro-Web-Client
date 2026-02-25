@@ -54,4 +54,26 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
+
+    .scrollbar-tactical::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .scrollbar-tactical::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .scrollbar-tactical::-webkit-scrollbar-thumb {
+        background: rgba(0, 194, 255, 0.2);
+        border-radius: 10px;
+    }
+
+    .scrollbar-tactical:hover::-webkit-scrollbar-thumb {
+        background: rgba(0, 194, 255, 0.5);
+    }
+
+    .scrollbar-tactical {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 194, 255, 0.2) transparent;
+    }
 }

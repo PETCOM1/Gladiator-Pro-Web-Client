@@ -34,8 +34,14 @@ function SectionHeader({ sub }: { title?: string; sub?: string }) {
 function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-            <div className="bg-tactical-surface/60 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-tactical-surface/60 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex items-center justify-between px-6 py-4 border-b border-tactical-border">
                     <h2 className="text-sm font-black text-white uppercase tracking-tight">{title}</h2>
                     <button onClick={onClose} className="text-tactical-muted hover:text-white transition-colors"><X size={18} /></button>
@@ -68,6 +74,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [editingSupervisor, setEditingSupervisor] = useState<User | null>(null);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assigningSite, setAssigningSite] = useState<Site | null>(null);
+    const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
 
     // --- Supervisor Actions ---
     const saveSupervisor = (data: Partial<User>) => {
@@ -91,6 +98,21 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         setSupervisors(prev => prev.filter(s => s.id !== id));
         // Also unassign from sites
         setSites(prev => prev.map(s => s.managerId === id ? { ...s, managerId: '', managerName: 'Unassigned' } : s));
+    };
+
+    // --- Site Actions ---
+    const saveSite = (data: Partial<Site>) => {
+        const newSite: Site = {
+            id: `site-${Date.now()}`,
+            tenantId: 'tenant-1',
+            name: data.name || 'New Facility',
+            location: data.location || 'Undisclosed Location',
+            managerId: '',
+            managerName: 'Unassigned',
+            totalOfficers: 0
+        };
+        setSites(prev => [...prev, newSite]);
+        setIsAddSiteModalOpen(false);
     };
 
     // --- Site Assignment ---
@@ -219,11 +241,45 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                             </div>
                         </div>
                     ))}
-                    <button className="bg-brand-midnight/30 border-2 border-dashed border-tactical-border rounded-2xl p-6 flex flex-col items-center justify-center gap-3 text-tactical-muted hover:border-brand-cyan/30 hover:text-brand-cyan transition-all">
+                    <button
+                        onClick={() => setIsAddSiteModalOpen(true)}
+                        className="bg-brand-midnight/30 border-2 border-dashed border-tactical-border rounded-2xl p-6 flex flex-col items-center justify-center gap-3 text-tactical-muted hover:border-brand-cyan/30 hover:text-brand-cyan transition-all"
+                    >
                         <Plus size={32} />
                         <span className="text-xs font-black uppercase tracking-widest">Register New Site</span>
                     </button>
                 </div>
+
+                <Modal isOpen={isAddSiteModalOpen} onClose={() => setIsAddSiteModalOpen(false)} title="Register Tactical Sector (Site)">
+                    <form
+                        className="space-y-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            saveSite({
+                                name: String(formData.get('name')),
+                                location: String(formData.get('location'))
+                            });
+                        }}
+                    >
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Sector Name</label>
+                            <input name="name" required placeholder="e.g. Orion Intelligence Hub" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Location (City/Zone)</label>
+                            <input name="location" required placeholder="e.g. Centurion, Gauteng" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                        </div>
+                        <div className="pt-4 flex gap-3">
+                            <button type="submit" className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:scale-[1.02] transition-all">
+                                Initialize Sector
+                            </button>
+                            <button type="button" onClick={() => setIsAddSiteModalOpen(false)} className="px-6 border border-tactical-border text-tactical-muted font-black text-[10px] uppercase tracking-widest rounded-xl hover:text-white transition-all">
+                                Abort
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
 
                 <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title={`Assign Supervisor: ${assigningSite?.name}`}>
                     <div className="space-y-4">

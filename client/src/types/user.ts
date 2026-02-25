@@ -78,6 +78,18 @@ export interface SiteIncident {
     reportedBy: string;
 }
 
+export interface OBEntry {
+    id: string;
+    siteId: string;
+    postId: string; // e.g., 'main-gate', 'library'
+    obNo: string;
+    time: string;
+    date: string;
+    officerName: string;
+    natureOfOccurrence: string;
+    pageNo?: string;
+}
+
 export interface SystemHealth {
     status: 'operational' | 'degraded' | 'maintenance';
     uptime: string;
