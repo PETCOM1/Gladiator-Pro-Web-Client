@@ -44,6 +44,19 @@ export interface Officer {
     shiftEnd?: string;
 }
 
+/**
+ * @alias Officer
+ * The user refers to personnel as 'Securities'.
+ */
+export type Security = Officer;
+
+export interface Post {
+    id: string;
+    siteId: string;
+    name: string;
+    description?: string;
+}
+
 export interface NFCCheckpoint {
     id: string;
     siteId: string;
@@ -60,12 +73,18 @@ export interface ShiftAssignment {
     siteId: string;
     officerId: string;
     officerName: string;
-    post: string;
+    postId: string; // References Post.id
     startTime: string;
     endTime: string;
     status: 'scheduled' | 'active' | 'completed';
     radioChannel?: string;
 }
+
+export const mockShifts: ShiftAssignment[] = [
+    { id: 'sh-1', siteId: 'site-1', officerId: 'off-1', officerName: 'K. Mthembu', postId: 'post-mg-1', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '01' },
+    { id: 'sh-2', siteId: 'site-1', officerId: 'off-4', officerName: 'L. Zulu', postId: 'post-lab-1', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '02' },
+    { id: 'sh-3', siteId: 'site-1', officerId: 'off-6', officerName: 'T. Ndlovu', postId: 'post-lib-1', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '03' },
+];
 
 export interface SiteIncident {
     id: string;
@@ -81,7 +100,7 @@ export interface SiteIncident {
 export interface OBEntry {
     id: string;
     siteId: string;
-    postId: string; // e.g., 'main-gate', 'library'
+    postId: string; // References Post.id
     obNo: string;
     time: string;
     date: string;

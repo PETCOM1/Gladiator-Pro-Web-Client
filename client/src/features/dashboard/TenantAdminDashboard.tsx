@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     LayoutDashboard, Users, MapPin, Settings,
     BarChart3, Shield, Clock, Search, Plus,
     Edit3, Save, Trash2, X, Briefcase,
-    Lock, Mail, Building, User as UserIcon
+    Lock, Mail, Building, User as UserIcon, Radio, ChevronLeft, Zap
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
-import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers as initialUsers } from '../../services/mockData';
-import type { Site, Officer, User } from '../../types/user';
+import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers as initialUsers, mockOBEntries as initialOBEntries, mockPosts as initialPosts } from '../../services/mockData';
+import type { Site, Officer, User, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
 
 // --- Types ---
-type TenantView = 'overview' | 'sites' | 'supervisors' | 'officers' | 'analytics' | 'settings' | 'profile';
+type TenantView = 'overview' | 'sites' | 'supervisors' | 'officers' | 'analytics' | 'settings' | 'profile' | 'ob-book';
 
 // --- Helpers ---
 const badgeStyle: Record<string, string> = {
@@ -68,6 +68,8 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         email: 'ceo@securecorp.com',
         branding: 'Tactical'
     });
+    const [obEntries] = useState<OBEntry[]>(initialOBEntries);
+    const [posts] = useState<Post[]>(initialPosts);
 
     // --- Modals State ---
     const [isSupModalOpen, setIsSupModalOpen] = useState(false);
@@ -639,6 +641,194 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         );
     };
 
+    const OccurrenceBookView = () => {
+        const [selectedSite, setSelectedSite] = useState<string | null>(null);
+        const [selectedPost, setSelectedPost] = useState<string | null>(null);
+        const [currentPage, setCurrentPage] = useState(1);
+        const [searchQuery, setSearchQuery] = useState('');
+        const [showAutomated, setShowAutomated] = useState(true);
+        const PAGE_SIZE = 10;
+
+        const sitePosts = useMemo(() => {
+            if (!selectedSite) return [];
+            return posts.filter(p => p.siteId === selectedSite);
+        }, [selectedSite]);
+
+        const entriesWithAIO = useMemo(() => {
+            if (!selectedPost) return [];
+            const enhanced: OBEntry[] = obEntries.filter(e => e.postId === selectedPost);
+
+            for (let h = 0; h < 24; h++) {
+                const hourStr = h.toString().padStart(2, '0') + ':00';
+                const hasEntry = enhanced.some(e => e.time === hourStr);
+
+                if (!hasEntry) {
+                    enhanced.push({
+                        id: `aio-${selectedPost}-${hourStr}`,
+                        siteId: selectedSite || '',
+                        postId: selectedPost,
+                        obNo: `SYS/${selectedPost.toUpperCase().substring(0, 2)}/${hourStr}`,
+                        time: hourStr,
+                        date: '2025-12-29',
+                        officerName: 'SYSTEM',
+                        natureOfOccurrence: 'A.I.O. (All In Order) — Post Verification Complete.',
+                    });
+                }
+            }
+
+            return enhanced.sort((a, b) => {
+                const getScore = (time: string) => {
+                    const h = parseInt(time.split(':')[0]);
+                    return h >= 6 ? h - 6 : h + 18;
+                };
+                return getScore(a.time) - getScore(b.time);
+            });
+        }, [selectedPost, selectedSite]);
+
+        const filteredEntries = entriesWithAIO.filter((entry: OBEntry) => {
+            if (!showAutomated && entry.officerName === 'SYSTEM') return false;
+            return entry.natureOfOccurrence.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                entry.obNo.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+
+        const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
+        const paginated = filteredEntries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+        if (!selectedSite) {
+            return (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <SectionHeader sub="Select an operational sector to audit its tactical ledgers" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                        {sites.map(site => (
+                            <button
+                                key={site.id}
+                                onClick={() => setSelectedSite(site.id)}
+                                className="bg-tactical-surface border border-tactical-border rounded-2xl p-6 text-left hover:border-brand-cyan/50 transition-all group"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-brand-midnight border border-tactical-border flex items-center justify-center text-brand-cyan mb-4">
+                                    <MapPin size={20} />
+                                </div>
+                                <h3 className="text-lg font-bold text-white uppercase tracking-tight mb-1">{site.name}</h3>
+                                <p className="text-xs text-tactical-muted mb-4">{site.location}</p>
+                                <div className="flex items-center justify-between pt-4 border-t border-tactical-border/50">
+                                    <span className="text-[10px] font-black text-brand-cyan uppercase tracking-widest">Audit Ledger →</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        if (!selectedPost) {
+            return (
+                <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                    <div className="flex items-center gap-4 mb-8">
+                        <button onClick={() => setSelectedSite(null)} className="w-10 h-10 rounded-xl bg-tactical-surface border border-tactical-border flex items-center justify-center text-tactical-muted hover:text-white transition-all">
+                            <ChevronLeft size={20} />
+                        </button>
+                        <div>
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">{sites.find(s => s.id === selectedSite)?.name}</h2>
+                            <p className="text-xs text-brand-cyan font-black uppercase tracking-widest">Select Tactical Post</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {sitePosts.map(post => (
+                            <button
+                                key={post.id}
+                                onClick={() => setSelectedPost(post.id)}
+                                className="bg-tactical-surface border border-tactical-border rounded-2xl p-8 text-left hover:border-brand-cyan/50 transition-all group"
+                            >
+                                <div className="w-12 h-12 rounded-2xl bg-brand-midnight border border-tactical-border flex items-center justify-center text-brand-cyan mb-6">
+                                    {post.name.toLowerCase().includes('gate') ? <Shield size={24} /> : post.name.toLowerCase().includes('library') ? <MapPin size={24} /> : <Zap size={24} />}
+                                </div>
+                                <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">{post.name}</h3>
+                                <p className="text-sm text-tactical-muted line-clamp-2">{post.description || 'Sector tactical duty point and monitoring station.'}</p>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        const postName = posts.find(p => p.id === selectedPost)?.name;
+
+        return (
+            <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                <div className="flex items-center gap-4 mb-8">
+                    <button onClick={() => setSelectedPost(null)} className="w-10 h-10 rounded-xl bg-tactical-surface border border-tactical-border flex items-center justify-center text-tactical-muted hover:text-white transition-all">
+                        <ChevronLeft size={20} />
+                    </button>
+                    <div>
+                        <h2 className="text-2xl font-black text-white uppercase tracking-tight">OB: {postName}</h2>
+                        <p className="text-xs text-brand-cyan font-black uppercase tracking-widest">{sites.find(s => s.id === selectedSite)?.name} Tactical Ledger</p>
+                    </div>
+                    <div className="ml-auto flex gap-4">
+                        <div className="relative w-64">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
+                            <input
+                                value={searchQuery}
+                                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                                placeholder="Search Ledger..."
+                                className="w-full bg-tactical-surface border border-tactical-border rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-brand-cyan/50"
+                            />
+                        </div>
+                        <button
+                            onClick={() => setShowAutomated(!showAutomated)}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                showAutomated ? "border-brand-cyan/50 text-brand-cyan bg-brand-cyan/5" : "border-tactical-border text-tactical-muted bg-tactical-surface"
+                            )}
+                        >
+                            {showAutomated ? 'Hide A.I.O.' : 'Show A.I.O.'}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-2xl">
+                    <div className="grid grid-cols-12 px-6 py-4 border-b border-tactical-border/50 bg-brand-midnight/30">
+                        <span className="col-span-1 text-[9px] font-black text-tactical-muted uppercase tracking-widest">OB No</span>
+                        <span className="col-span-1 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Time</span>
+                        <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Officer</span>
+                        <span className="col-span-8 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Nature of Occurrence</span>
+                    </div>
+                    <div className="divide-y divide-tactical-border">
+                        {paginated.map((entry: OBEntry) => (
+                            <div key={entry.id} className="grid grid-cols-12 px-6 py-4 items-start hover:bg-brand-midnight/20 transition-all group">
+                                <span className="col-span-1 text-[11px] font-bold text-brand-cyan/80 font-mono tracking-tighter">{entry.obNo}</span>
+                                <span className="col-span-1 text-[11px] font-bold text-white/60 font-mono">{entry.time}</span>
+                                <div className="col-span-2 pr-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className={cn(
+                                            "w-1.5 h-1.5 rounded-full shrink-0",
+                                            entry.officerName === 'SYSTEM' ? 'bg-tactical-muted/40 shadow-[0_0_8px_rgba(156,163,175,0.2)]' : 'bg-brand-cyan shadow-[0_0_8px_rgba(0,194,255,0.4)]'
+                                        )} />
+                                        <span className="text-xs font-black text-white uppercase tracking-tight truncate">{entry.officerName}</span>
+                                    </div>
+                                </div>
+                                <div className="col-span-8 pr-4">
+                                    <p className="text-xs font-medium text-white/90 leading-relaxed italic border-l-2 border-brand-cyan/10 pl-4 py-1">
+                                        {entry.natureOfOccurrence}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="mt-6">
+                    <TacticalPagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        totalResults={filteredEntries.length}
+                        resultRange={`${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filteredEntries.length)}`}
+                    />
+                </div>
+            </div>
+        );
+    };
+
     const ProfileSettingsView = () => {
         return (
             <div>
@@ -717,6 +907,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         { icon: <Shield size={20} />, label: 'Supervisor Network', description: 'Manage company administrators and site managers', active: activeView === 'supervisors', onClick: () => setActiveView('supervisors'), badge: supervisors.length },
         { icon: <Users size={20} />, label: 'Personnel Roster', description: 'Operational officer database and live status tracking', active: activeView === 'officers', onClick: () => setActiveView('officers') },
         { icon: <BarChart3 size={20} />, label: 'Tactical Analytics', description: 'Personnel deployment trends and incident response analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
+        { icon: <Radio size={20} />, label: 'Occurrence Book', description: 'Audit tactical ledgers across all operational sectors', active: activeView === 'ob-book', onClick: () => setActiveView('ob-book') },
         { icon: <Settings size={20} />, label: 'System Settings', description: 'Manage your company profile and platform preferences', active: activeView === 'settings', onClick: () => setActiveView('settings') },
     ];
 
@@ -734,6 +925,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
             {activeView === 'supervisors' && <SupervisorManagementView />}
             {activeView === 'officers' && <OfficerDirectoryView />}
             {activeView === 'analytics' && <OperationalAnalyticsView />}
+            {activeView === 'ob-book' && <OccurrenceBookView />}
             {activeView === 'settings' && <SettingsView />}
             {activeView === 'profile' && <ProfileSettingsView />}
         </DashboardLayout>

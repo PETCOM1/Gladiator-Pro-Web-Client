@@ -10,9 +10,10 @@ import {
     mockShifts as initialShifts,
     mockSiteIncidents as initialIncidents,
     mockOfficers,
-    mockOBEntries as initialOBEntries
+    mockOBEntries as initialOBEntries,
+    mockPosts as initialPosts
 } from '../../services/mockData';
-import type { NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry } from '../../types/user';
+import type { NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
 
@@ -61,6 +62,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     const [incidents] = useState<SiteIncident[]>(initialIncidents);
     const [siteOfficers] = useState<Officer[]>(mockOfficers.filter(o => o.siteId === 'site-1'));
     const [obEntries] = useState<OBEntry[]>(initialOBEntries);
+    const [posts] = useState<Post[]>(initialPosts.filter(p => p.siteId === 'site-1'));
 
     // --- Modals ---
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
@@ -82,7 +84,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                 siteId: 'site-1',
                 officerId: data.officerId || '',
                 officerName: officer?.name || 'Unknown',
-                post: data.post || 'Unassigned',
+                postId: data.postId || '',
                 startTime: data.startTime || '06:00',
                 endTime: data.endTime || '14:00',
                 status: 'active',
@@ -211,7 +213,9 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-bold text-white">{s.officerName}</p>
-                                            <p className="text-[10px] text-tactical-muted uppercase tracking-widest">{s.post}</p>
+                                            <p className="text-[10px] text-tactical-muted uppercase tracking-widest">
+                                                {posts.find(p => p.id === s.postId)?.name || 'Unknown Post'}
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-1.5 px-2 py-1 bg-brand-cyan/5 border border-brand-cyan/20 rounded">
                                             <Radio size={10} className="text-brand-cyan" />
@@ -282,7 +286,9 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                     </div>
                                     <span className="text-sm font-bold text-white">{s.officerName}</span>
                                 </div>
-                                <span className="text-xs text-tactical-muted uppercase tracking-widest font-black">{s.post}</span>
+                                <span className="text-xs text-tactical-muted uppercase tracking-widest font-black">
+                                    {posts.find(p => p.id === s.postId)?.name || 'Unknown'}
+                                </span>
                                 <div className="flex items-center gap-1.5 text-brand-cyan">
                                     <Radio size={12} />
                                     <span className="text-[10px] font-black">{s.radioChannel}</span>
@@ -315,7 +321,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                 />
 
                 <Modal isOpen={isShiftModalOpen} onClose={() => setIsShiftModalOpen(false)} title={editingShift ? "Update Tactical Assignment" : "Initialize New Shift"}>
-                    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); saveShift({ officerId: String(formData.get('officerId')), post: String(formData.get('post')), radioChannel: String(formData.get('channel')), startTime: String(formData.get('start')), endTime: String(formData.get('end')) }); }}>
+                    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); saveShift({ officerId: String(formData.get('officerId')), postId: String(formData.get('postId')), radioChannel: String(formData.get('channel')), startTime: String(formData.get('start')), endTime: String(formData.get('end')) }); }}>
                         <div>
                             <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Deploy Officer</label>
                             <select name="officerId" defaultValue={editingShift?.officerId} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]">
@@ -325,7 +331,9 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Post</label>
-                                <input name="post" defaultValue={editingShift?.post} placeholder="Gate A" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                <select name="postId" defaultValue={editingShift?.postId} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]">
+                                    {posts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
                             </div>
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Comm Channel</label>
@@ -641,7 +649,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                     )}>{officer.status}</span>
                                 </div>
                                 <span className="text-xs text-white uppercase tracking-tighter">
-                                    {shifts.find(s => s.officerId === officer.id)?.post || 'Standby'}
+                                    {posts.find(p => p.id === (shifts.find(s => s.officerId === officer.id)?.postId))?.name || 'Standby'}
                                 </span>
                                 <div>
                                     <button
@@ -759,7 +767,9 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                 <div className="space-y-4">
                                     <div>
                                         <span className="text-[9px] font-black text-tactical-muted uppercase block mb-1">Primary Post</span>
-                                        <p className="text-sm font-bold text-white uppercase">{shifts.find(s => s.officerId === officer.id)?.post || 'RESERVE POOL'}</p>
+                                        <p className="text-sm font-bold text-white uppercase">
+                                            {posts.find(p => p.id === (shifts.find(s => s.officerId === officer.id)?.postId))?.name || 'RESERVE POOL'}
+                                        </p>
                                     </div>
                                     <div>
                                         <span className="text-[9px] font-black text-tactical-muted uppercase block mb-1">Standard Shift</span>
@@ -825,18 +835,10 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         const [showAutomated, setShowAutomated] = useState(true);
         const PAGE_SIZE = 10;
 
-        const posts = [
-            { id: 'main-gate', name: 'Main Gate', description: 'Primary vehicle and pedestrian access control point', icon: <Shield size={24} /> },
-            { id: 'small-gate', name: 'Small Gate', description: 'Side service entrance and staff access', icon: <Shield size={24} /> },
-            { id: 'library', name: 'Library', description: 'Academic resource center and archive storage', icon: <Map size={24} /> },
-            { id: 'labs', name: 'Labs', description: 'High-security research facility and chemical storage', icon: <Zap size={24} /> },
-        ];
-
-        // Generate AIO fallback entries for a full 24-hour cycle (06:00 to 05:00 next day)
         const entriesWithAIO = useMemo(() => {
             if (!selectedPost) return [];
 
-            const enhanced = obEntries.filter(e => e.postId === selectedPost);
+            const enhanced: OBEntry[] = initialOBEntries.filter(e => e.postId === selectedPost);
 
             for (let h = 0; h < 24; h++) {
                 const hourStr = h.toString().padStart(2, '0') + ':00';
@@ -864,7 +866,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                 };
                 return getScore(a.time) - getScore(b.time);
             });
-        }, [obEntries, selectedPost]);
+        }, [selectedPost]);
 
         const filteredEntries = entriesWithAIO.filter((entry: OBEntry) => {
             if (!showAutomated && entry.officerName === 'SYSTEM') return false;
@@ -898,7 +900,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
 
                                     <div className="relative z-10">
                                         <div className="w-12 h-12 rounded-2xl bg-brand-midnight border border-tactical-border flex items-center justify-center text-brand-cyan mb-6 group-hover:border-brand-cyan/30 transition-colors">
-                                            {post.icon}
+                                            {post.name.toLowerCase().includes('gate') ? <Shield size={24} /> : post.name.toLowerCase().includes('library') ? <Map size={24} /> : <Zap size={24} />}
                                         </div>
                                         <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">{post.name}</h3>
                                         <p className="text-xs text-tactical-muted mb-8 line-clamp-2">{post.description}</p>

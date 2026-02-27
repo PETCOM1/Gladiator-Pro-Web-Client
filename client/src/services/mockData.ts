@@ -1,4 +1,4 @@
-import type { User, Tenant, Site, PaymentRecord, SupportTicket, MaintenanceLog, OnboardingRequest, Officer, NFCCheckpoint, ShiftAssignment, SiteIncident, OBEntry } from '../types/user';
+import type { NFCCheckpoint, ShiftAssignment, SiteIncident, OBEntry, Site, PaymentRecord, SupportTicket, MaintenanceLog, OnboardingRequest, Post, Security } from '../types/user';
 
 // ─── Mock Credentials ──────────────────────────────────────────────────────
 //  GLOBAL COMMAND (Super Admin): admin@gladiator.pro / Gladiator@2025
@@ -34,8 +34,15 @@ export const mockSites: Site[] = [
     { id: 'site-3', tenantId: 'tenant-1', name: 'Westside Data Center', location: '45 Tech Way, Johannesburg', managerId: '3', managerName: 'Thomas Miller', totalOfficers: 35 },
 ];
 
-export const mockOfficers: Officer[] = [
-    { id: 'off-1', tenantId: 'tenant-1', siteId: 'site-1', name: 'K. Mthembu', role: 'Gate A Supervisor', status: 'on-duty', shiftStart: '06:00', shiftEnd: '14:00' },
+export const mockPosts: Post[] = [
+    { id: 'post-mg-1', siteId: 'site-1', name: 'Main Gate', description: 'Primary vehicle and pedestrian entrance' },
+    { id: 'post-lib-1', siteId: 'site-1', name: 'Library', description: 'Academic resource center monitoring' },
+    { id: 'post-lab-1', siteId: 'site-1', name: 'Labs', description: 'High-security research facility' },
+    { id: 'post-wh-1', siteId: 'site-2', name: 'Warehouse Entry', description: 'Goods receiving area' },
+];
+
+export const mockOfficers: Security[] = [
+    { id: 'off-1', tenantId: 'tenant-1', siteId: 'site-1', name: 'K. Mthembu', role: 'Sector Alpha Lead', status: 'on-duty', shiftStart: '06:00', shiftEnd: '14:00' },
     { id: 'off-2', tenantId: 'tenant-1', siteId: 'site-1', name: 'B. Nkosi', role: 'Patrol Lead – North', status: 'off-duty', shiftStart: '14:00', shiftEnd: '22:00' },
     { id: 'off-3', tenantId: 'tenant-1', siteId: 'site-3', name: 'F. Dlamini', role: 'Control Room', status: 'off-duty', shiftStart: '22:00', shiftEnd: '06:00' },
     { id: 'off-4', tenantId: 'tenant-1', siteId: 'site-1', name: 'L. Zulu', role: 'Mobile Patrol', status: 'on-duty', shiftStart: '06:00', shiftEnd: '14:00' },
@@ -51,9 +58,9 @@ export const mockCheckpoints: NFCCheckpoint[] = [
 ];
 
 export const mockShifts: ShiftAssignment[] = [
-    { id: 'sh-1', siteId: 'site-1', officerId: 'off-1', officerName: 'K. Mthembu', post: 'Gate A', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '01' },
-    { id: 'sh-2', siteId: 'site-1', officerId: 'off-4', officerName: 'L. Zulu', post: 'North Patrol', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '02' },
-    { id: 'sh-3', siteId: 'site-1', officerId: 'off-6', officerName: 'T. Ndlovu', post: 'Loading Bay', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '03' },
+    { id: 'sh-1', siteId: 'site-1', officerId: 'off-1', officerName: 'K. Mthembu', postId: 'post-mg-1', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '01' },
+    { id: 'sh-2', siteId: 'site-1', officerId: 'off-4', officerName: 'L. Zulu', postId: 'post-lab-1', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '02' },
+    { id: 'sh-3', siteId: 'site-1', officerId: 'off-6', officerName: 'T. Ndlovu', postId: 'post-lib-1', startTime: '06:00', endTime: '14:00', status: 'active', radioChannel: '03' },
 ];
 
 export const mockSiteIncidents: SiteIncident[] = [
@@ -63,26 +70,26 @@ export const mockSiteIncidents: SiteIncident[] = [
 
 export const mockOBEntries: OBEntry[] = [
     // Main Gate - Day Shift
-    { id: 'ob-mg-d1', siteId: 'site-1', postId: 'main-gate', obNo: 'MG-001/12/25', time: '06:00', date: '2025-12-29', officerName: 'Munzhadzi', natureOfOccurrence: 'Slo Munzhadzi Report on duty day shift at Main Gate after patrol find all in order', pageNo: '01' },
-    { id: 'ob-mg-d2', siteId: 'site-1', postId: 'main-gate', obNo: 'MG-002/12/25', time: '07:00', date: '2025-12-29', officerName: 'Munzhadzi', natureOfOccurrence: 'Main Gate check complete - All visitors cleared' },
-    { id: 'ob-mg-d3', siteId: 'site-1', postId: 'main-gate', obNo: 'MG-003/12/25', time: '08:00', date: '2025-12-29', officerName: 'Munzhadzi', natureOfOccurrence: 'Slo Report everything is looking good at Main Gate' },
+    { id: 'ob-mg-d1', siteId: 'site-1', postId: 'post-mg-1', obNo: 'MG-001/12/25', time: '06:00', date: '2025-12-29', officerName: 'Munzhadzi', natureOfOccurrence: 'Slo Munzhadzi Report on duty day shift at Main Gate after patrol find all in order', pageNo: '01' },
+    { id: 'ob-mg-d2', siteId: 'site-1', postId: 'post-mg-1', obNo: 'MG-002/12/25', time: '07:00', date: '2025-12-29', officerName: 'Munzhadzi', natureOfOccurrence: 'Main Gate check complete - All visitors cleared' },
+    { id: 'ob-mg-d3', siteId: 'site-1', postId: 'post-mg-1', obNo: 'MG-003/12/25', time: '08:00', date: '2025-12-29', officerName: 'Munzhadzi', natureOfOccurrence: 'Slo Report everything is looking good at Main Gate' },
 
     // Library - Day Shift
-    { id: 'ob-lib-d1', siteId: 'site-1', postId: 'library', obNo: 'LIB-001/12/25', time: '06:30', date: '2025-12-29', officerName: 'K. Mthembu', natureOfOccurrence: 'S/O Mthembu checked Library perimeter - all secure' },
-    { id: 'ob-lib-d2', siteId: 'site-1', postId: 'library', obNo: 'LIB-002/12/25', time: '08:00', date: '2025-12-29', officerName: 'K. Mthembu', natureOfOccurrence: 'Library opening procedures completed' },
+    { id: 'ob-lib-d1', siteId: 'site-1', postId: 'post-lib-1', obNo: 'LIB-001/12/25', time: '06:30', date: '2025-12-29', officerName: 'K. Mthembu', natureOfOccurrence: 'S/O Mthembu checked Library perimeter - all secure' },
+    { id: 'ob-lib-d2', siteId: 'site-1', postId: 'post-lib-1', obNo: 'LIB-002/12/25', time: '08:00', date: '2025-12-29', officerName: 'K. Mthembu', natureOfOccurrence: 'Library opening procedures completed' },
 
     // Labs - Day Shift
-    { id: 'ob-labs-d1', siteId: 'site-1', postId: 'labs', obNo: 'LAB-001/12/25', time: '06:45', date: '2025-12-29', officerName: 'L. Zulu', natureOfOccurrence: 'Patrol Lead Zulu reporting at Labs - biometric access functional' },
-    { id: 'ob-labs-d2', siteId: 'site-1', postId: 'labs', obNo: 'LAB-002/12/25', time: '10:00', date: '2025-12-29', officerName: 'L. Zulu', natureOfOccurrence: 'Lab ventilation system check complete' },
+    { id: 'ob-labs-d1', siteId: 'site-1', postId: 'post-lab-1', obNo: 'LAB-001/12/25', time: '06:45', date: '2025-12-29', officerName: 'L. Zulu', natureOfOccurrence: 'Patrol Lead Zulu reporting at Labs - biometric access functional' },
+    { id: 'ob-labs-d2', siteId: 'site-1', postId: 'post-lab-1', obNo: 'LAB-002/12/25', time: '10:00', date: '2025-12-29', officerName: 'L. Zulu', natureOfOccurrence: 'Lab ventilation system check complete' },
 
     // Main Gate - Night Shift
-    { id: 'ob-mg-n1', siteId: 'site-1', postId: 'main-gate', obNo: 'MG-004/12/25', time: '18:00', date: '2025-12-29', officerName: 'J. Phiri', natureOfOccurrence: 'S/O Phiri Report on duty night shift at Main Gate - handover complete', pageNo: '02' },
-    { id: 'ob-mg-n2', siteId: 'site-1', postId: 'main-gate', obNo: 'MG-005/12/25', time: '20:00', date: '2025-12-29', officerName: 'J. Phiri', natureOfOccurrence: 'Perimeter lights activated - no blind spots detected' },
-    { id: 'ob-mg-n3', siteId: 'site-1', postId: 'main-gate', obNo: 'MG-006/12/25', time: '00:00', date: '2025-12-30', officerName: 'J. Phiri', natureOfOccurrence: 'Midnight patrol complete - Main Gate silent' },
+    { id: 'ob-mg-n1', siteId: 'site-1', postId: 'post-mg-1', obNo: 'MG-004/12/25', time: '18:00', date: '2025-12-29', officerName: 'J. Phiri', natureOfOccurrence: 'S/O Phiri Report on duty night shift at Main Gate - handover complete', pageNo: '02' },
+    { id: 'ob-mg-n2', siteId: 'site-1', postId: 'post-mg-1', obNo: 'MG-005/12/25', time: '20:00', date: '2025-12-29', officerName: 'J. Phiri', natureOfOccurrence: 'Perimeter lights activated - no blind spots detected' },
+    { id: 'ob-mg-n3', siteId: 'site-1', postId: 'post-mg-1', obNo: 'MG-006/12/25', time: '00:00', date: '2025-12-30', officerName: 'J. Phiri', natureOfOccurrence: 'Midnight patrol complete - Main Gate silent' },
 
     // Labs - Night Shift
-    { id: 'ob-labs-n1', siteId: 'site-1', postId: 'labs', obNo: 'LAB-003/12/25', time: '18:15', date: '2025-12-29', officerName: 'S. Nkosi', natureOfOccurrence: 'Night shift Labs occupation - high security mode engaged' },
-    { id: 'ob-labs-n2', siteId: 'site-1', postId: 'labs', obNo: 'LAB-004/12/25', time: '03:00', date: '2025-12-30', officerName: 'S. Nkosi', natureOfOccurrence: 'Chemical storage vault check - all seals intact' },
+    { id: 'ob-labs-n1', siteId: 'site-1', postId: 'post-lab-1', obNo: 'LAB-003/12/25', time: '18:15', date: '2025-12-29', officerName: 'S. Nkosi', natureOfOccurrence: 'Night shift Labs occupation - high security mode engaged' },
+    { id: 'ob-labs-n2', siteId: 'site-1', postId: 'post-lab-1', obNo: 'LAB-004/12/25', time: '03:00', date: '2025-12-30', officerName: 'S. Nkosi', natureOfOccurrence: 'Chemical storage vault check - all seals intact' },
 ];
 
 export const mockPayments: PaymentRecord[] = [
