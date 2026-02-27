@@ -6,7 +6,7 @@ import type { UserRole } from '../../types/user';
 
 const demoAccounts = [
     {
-        role: 'super-admin' as UserRole,
+        role: 'SUPER_ADMIN' as UserRole,
         label: 'Global Command',
         email: 'admin@gladiator.pro',
         password: 'Gladiator@2025',
@@ -14,27 +14,27 @@ const demoAccounts = [
         color: 'brand-cyan',
     },
     {
-        role: 'global-admin' as UserRole,
-        label: 'Global Admin',
-        email: 'julius@gladiator.pro',
+        role: 'SUPER_ADMIN' as UserRole,
+        label: 'Global Command',
+        email: 'admin@gladiator.pro',
         password: 'Gladiator@2025',
-        description: 'Operational Management',
-        color: 'brand-steel',
+        description: 'Super Admin Oversight',
+        color: 'brand-cyan',
     },
     {
-        role: 'tenant-admin' as UserRole,
+        role: 'TENANT_OWNER' as UserRole,
         label: 'Tenant Admin',
-        email: 'ceo@securecorp.com',
-        password: 'SecureCorp@2025',
-        description: 'SecureCorp Solutions',
+        email: 'tenant@gladiator.pro',
+        password: 'Gladiator@2025',
+        description: 'Demo Corporation Admin',
         color: 'brand-steel',
     },
     {
-        role: 'site-manager' as UserRole,
+        role: 'SUPERVISOR' as UserRole,
         label: 'Site Manager',
-        email: 'sarah@northsector.com',
-        password: 'NorthSector@2025',
-        description: 'North Sector Complex',
+        email: 'manager@gladiator.pro',
+        password: 'Gladiator@2025',
+        description: 'Field Operations Lead',
         color: 'brand-steel',
     },
 ];
@@ -51,8 +51,8 @@ export function LoginPage() {
         e.preventDefault();
         setError('');
         setLoading(true);
-        await new Promise((r) => setTimeout(r, 600)); // Simulate network latency
-        const result = login(email, password);
+        // await new Promise((r) => setTimeout(r, 600)); // Simulate network latency - replaced by actual login
+        const result = await login(email, password);
         if (!result.success) setError(result.error ?? 'Login failed.');
         setLoading(false);
     };

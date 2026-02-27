@@ -16,6 +16,8 @@ import {
 import type { NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
+import { authService } from '../../services/authService';
+import { useTenant } from '../../contexts/TenantContext';
 
 // --- Types ---
 type SiteView = 'operations' | 'shifts' | 'patrols' | 'guards' | 'incidents' | 'orders' | 'profile' | 'security-profile' | 'ob-book';
@@ -72,6 +74,10 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     const [isTagRegistryOpen, setIsTagRegistryOpen] = useState(false);
     const [selectedCPForTags, setSelectedCPForTags] = useState<NFCCheckpoint | null>(null);
     const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
+    const [isOfficerModalOpen, setIsOfficerModalOpen] = useState(false);
+    const [isSendingInvite, setIsSendingInvite] = useState(false);
+    const [inviteError, setInviteError] = useState('');
+    const { currentTenant } = useTenant();
 
     // --- Actions ---
     const saveShift = (data: Partial<ShiftAssignment>) => {
@@ -127,6 +133,21 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         setCheckpoints(prev => prev.map(cp => cp.id === cpId ? { ...cp, tagIds } : cp));
         if (selectedCPForTags?.id === cpId) {
             setSelectedCPForTags(prev => prev ? { ...prev, tagIds } : null);
+        }
+    };
+
+    const saveOfficer = async (data: { name: string, email: string, role: string }) => {
+        setIsSendingInvite(true);
+        setInviteError('');
+        try {
+            await authService.sendInvitation(data.email, 'SECURITY', currentTenant?.id);
+            // We just add a mock officer for now until they accept
+            // In a real app, the list would refresh from API
+            setIsOfficerModalOpen(false);
+        } catch (err: any) {
+            setInviteError(err.message);
+        } finally {
+            setIsSendingInvite(false);
         }
     };
 
@@ -620,6 +641,12 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                             </button>
                         ))}
                     </div>
+                    <button
+                        onClick={() => { setIsOfficerModalOpen(true); }}
+                        className="px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,194,255,0.15)] flex items-center gap-2"
+                    >
+                        <Plus size={14} /> Register Personnel
+                    </button>
                 </div>
 
                 <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
@@ -674,7 +701,54 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                     totalResults={filtered.length}
                     resultRange={filtered.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}` : '0 - 0'}
                 />
-                {/* Old Personnel Modal removed - now a dedicated View */}
+
+                <Modal isOpen={isOfficerModalOpen} onClose={() => setIsOfficerModalOpen(false)} title="Register New Personnel">
+                    <form className="space-y-4" onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        saveOfficer({
+                            name: String(formData.get('name')),
+                            email: String(formData.get('email')),
+                            role: String(formData.get('role'))
+                        });
+                    }}>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Full Name</label>
+                            <input name="name" required placeholder="e.g. John Doe" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Email Interface</label>
+                            <input name="email" type="email" required placeholder="officer@securecorp.com" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                            <p className="text-[8px] text-brand-cyan/60 mt-1 uppercase tracking-tighter italic">* An invitation will be sent to this address</p>
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Role</label>
+                            <select name="role" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]">
+                                <option value="SECURITY">Security Officer</option>
+                                <option value="SUPERVISOR">Site Supervisor</option>
+                            </select>
+                        </div>
+
+                        {inviteError && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-[10px] text-red-400 font-bold">
+                                Error: {inviteError}
+                            </div>
+                        )}
+
+                        <div className="pt-4 flex gap-3">
+                            <button
+                                type="submit"
+                                disabled={isSendingInvite}
+                                className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSendingInvite ? <Radio size={14} className="animate-pulse" /> : "Confirm & Send Invitation"}
+                            </button>
+                            <button type="button" onClick={() => setIsOfficerModalOpen(false)} className="px-6 border border-tactical-border text-tactical-muted font-black text-[10px] uppercase tracking-widest rounded-xl hover:text-white transition-all">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
             </div>
         );
     };

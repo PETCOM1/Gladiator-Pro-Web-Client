@@ -10,6 +10,8 @@ import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers a
 import type { Site, Officer, User, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
+import { authService } from '../../services/authService';
+import { useTenant } from '../../contexts/TenantContext';
 
 // --- Types ---
 type TenantView = 'overview' | 'sites' | 'supervisors' | 'officers' | 'analytics' | 'settings' | 'profile' | 'ob-book';
@@ -61,7 +63,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [sites, setSites] = useState<Site[]>(initialSites.filter(s => s.tenantId === 'tenant-1'));
     const [officers] = useState<Officer[]>(initialOfficers.filter(o => o.tenantId === 'tenant-1'));
     const [supervisors, setSupervisors] = useState<User[]>(
-        Object.values(initialUsers).filter(u => u.role === 'site-manager' && u.tenantId === 'tenant-1')
+        Object.values(initialUsers).filter(u => u.role === 'SUPERVISOR' && u.tenantId === 'tenant-1')
     );
     const [companyInfo, setCompanyInfo] = useState({
         name: 'SecureCorp Solutions',
@@ -77,20 +79,34 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assigningSite, setAssigningSite] = useState<Site | null>(null);
     const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
+    const [isSendingInvite, setIsSendingInvite] = useState(false);
+    const [inviteError, setInviteError] = useState('');
+    const { currentTenant } = useTenant();
 
     // --- Supervisor Actions ---
-    const saveSupervisor = (data: Partial<User>) => {
+    const saveSupervisor = async (data: Partial<User>) => {
         if (editingSupervisor) {
             setSupervisors(prev => prev.map(s => s.id === editingSupervisor.id ? { ...s, ...data } : s));
         } else {
-            const newSup: User = {
-                id: `sup-${Date.now()}`,
-                name: data.name || '',
-                email: data.email || '',
-                role: 'site-manager',
-                tenantId: 'tenant-1'
-            };
-            setSupervisors(prev => [...prev, newSup]);
+            if (!data.email) return;
+            setIsSendingInvite(true);
+            setInviteError('');
+            try {
+                await authService.sendInvitation(data.email, 'SUPERVISOR', currentTenant?.id);
+                const newSup: User = {
+                    id: `sup-${Date.now()}`,
+                    name: data.name || '',
+                    email: data.email || '',
+                    role: 'SUPERVISOR',
+                    tenantId: currentTenant?.id || 'tenant-1'
+                };
+                setSupervisors(prev => [...prev, newSup]);
+            } catch (err: any) {
+                setInviteError(err.message);
+                setIsSendingInvite(false);
+                return; // Don't close modal if error
+            }
+            setIsSendingInvite(false);
         }
         setIsSupModalOpen(false);
         setEditingSupervisor(null);
@@ -369,7 +385,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                                     {sites.find(site => site.managerId === s.id) ? (
                                         <div className="flex items-center gap-2 text-emerald-400">
                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                            <span className="text-xs font-bold truncate">{sites.find(site => site.managerId === s.id)?.name}</span>
+                                            <span className="text-xs font-bold truncate">{sites.find(site => site.managerId === s.id)?.name || 'Unassigned Sector'}</span>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2 text-tactical-muted italic">
@@ -413,10 +429,22 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         <div>
                             <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Email Interface</label>
                             <input name="email" type="email" defaultValue={editingSupervisor?.email} required placeholder="admin@securecorp.com" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                            {!editingSupervisor && <p className="text-[8px] text-brand-cyan/60 mt-1 uppercase tracking-tighter italic">* An invitation will be sent to this address</p>}
                         </div>
+
+                        {inviteError && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-[10px] text-red-400 font-bold">
+                                Error: {inviteError}
+                            </div>
+                        )}
+
                         <div className="pt-4 flex gap-3">
-                            <button type="submit" className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:scale-[1.02] transition-all">
-                                {editingSupervisor ? "Save Profile Changes" : "Confirm Registration"}
+                            <button
+                                type="submit"
+                                disabled={isSendingInvite}
+                                className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSendingInvite ? <Radio size={14} className="animate-pulse" /> : (editingSupervisor ? "Save Profile Changes" : "Confirm & Send Invitation")}
                             </button>
                             <button type="button" onClick={() => setIsSupModalOpen(false)} className="px-6 border border-tactical-border text-tactical-muted font-black text-[10px] uppercase tracking-widest rounded-xl hover:text-white transition-all">
                                 Cancel
@@ -485,7 +513,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <MapPin size={10} className="text-tactical-muted" />
-                                    <span className="text-xs text-white font-medium">{sites.find(s => s.id === o.siteId)?.name}</span>
+                                    <span className="text-xs text-white font-medium">{sites.find(s => s.id === o.siteId)?.name || 'Deployment Sector'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Clock size={10} className="text-brand-cyan" />

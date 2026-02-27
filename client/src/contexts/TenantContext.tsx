@@ -1,12 +1,13 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, Tenant, UserRole } from '../types/user';
-import { mockUsers, mockTenants, mockCredentials } from '../services/mockData';
+import { mockUsers, mockTenants } from '../services/mockData';
+import { authService } from '../services/authService';
 
 interface TenantContextType {
     currentUser: User | null;
     currentTenant: Tenant | null;
     role: UserRole | null;
-    login: (email: string, password: string) => { success: boolean; error?: string };
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
     loginByRole: (role: UserRole) => void;
     logout: () => void;
 }
@@ -17,16 +18,30 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
 
-    const login = (email: string, password: string) => {
-        const cred = mockCredentials[email.toLowerCase()];
-        if (!cred) return { success: false, error: 'No account found for that email.' };
-        if (cred.password !== password) return { success: false, error: 'Incorrect password.' };
+    // Recover session on mount
+    useEffect(() => {
+        const user = authService.getUser();
+        if (user) {
+            setCurrentUser(user);
+            // In a real app, we'd fetch the tenant from the API
+            const tenant = mockTenants.find((t) => t.id === user.tenantId) || null;
+            setCurrentTenant(tenant);
+        }
+    }, []);
 
-        const user = mockUsers[cred.userId];
-        setCurrentUser(user);
-        const tenant = mockTenants.find((t) => t.id === user.tenantId) || null;
-        setCurrentTenant(tenant);
-        return { success: true };
+    const login = async (email: string, password: string) => {
+        try {
+            const response = await authService.login(email, password);
+            authService.saveAuth(response.token, response.user);
+
+            setCurrentUser(response.user);
+            const tenant = mockTenants.find((t) => t.id === response.user.tenantId) || null;
+            setCurrentTenant(tenant);
+
+            return { success: true };
+        } catch (error: any) {
+            return { success: false, error: error.message || 'Login failed' };
+        }
     };
 
     const loginByRole = (role: UserRole) => {
@@ -38,6 +53,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = () => {
+        authService.logout();
         setCurrentUser(null);
         setCurrentTenant(null);
     };

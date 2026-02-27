@@ -681,6 +681,42 @@ function SystemUsersView() {
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 5;
 
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [inviteForm, setInviteForm] = useState({
+        email: '',
+        role: 'GLOBAL_ADMIN',
+    });
+    const [isInviting, setIsInviting] = useState(false);
+
+    const handleSendInvite = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsInviting(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/api/invitations/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(inviteForm),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to send invitation');
+            }
+
+            alert('Invitation sent successfully!');
+            setShowInviteModal(false);
+            setInviteForm({ email: '', role: 'GLOBAL_ADMIN' });
+        } catch (error: any) {
+            alert(error.message);
+        } finally {
+            setIsInviting(false);
+        }
+    };
+
     // In a real app we'd fetch users from the backend
     const dummyAdmins = [
         { id: '1', name: 'Marcus Global', email: 'admin@gladiator-pro.com', role: 'super-admin', status: 'active', lastLogin: '2024-02-24 10:20' },
@@ -712,10 +748,61 @@ function SystemUsersView() {
                         <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${filter === f ? 'bg-brand-cyan text-brand-midnight border-brand-cyan' : 'bg-tactical-surface border-tactical-border text-tactical-muted hover:border-brand-cyan/30'}`}>{f.replace('-', ' ')}</button>
                     ))}
                 </div>
-                <button className="px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,194,255,0.15)] flex items-center gap-2">
-                    <UserPlus size={14} /> Provision Admin
+                <button
+                    onClick={() => setShowInviteModal(true)}
+                    className="px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,194,255,0.15)] flex items-center gap-2"
+                >
+                    <UserPlus size={14} /> Send Invitation
                 </button>
             </div>
+
+            {showInviteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-300">
+                    <Card className="w-full max-w-md p-8 relative animate-in zoom-in-95 duration-300 bg-tactical-surface/60 backdrop-blur-xl border-white/10">
+                        <button onClick={() => setShowInviteModal(false)} className="absolute top-6 right-6 text-tactical-muted hover:text-white transition-colors">
+                            <X size={20} />
+                        </button>
+                        <div className="mb-8">
+                            <h2 className="text-xl font-black text-white uppercase tracking-tight">Send Tactical Invitation</h2>
+                            <p className="text-[10px] text-brand-cyan font-black uppercase tracking-[0.2em] mt-1">Personnel Authorization Stage</p>
+                        </div>
+
+                        <form onSubmit={handleSendInvite} className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="space-y-1.5 flex flex-col">
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">Recipient Email</label>
+                                    <input
+                                        required
+                                        type="email"
+                                        value={inviteForm.email}
+                                        onChange={e => setInviteForm(p => ({ ...p, email: e.target.value }))}
+                                        className="bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50"
+                                        placeholder="officer@gladiator.pro"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 flex flex-col">
+                                    <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">Designated Role</label>
+                                    <select
+                                        value={inviteForm.role}
+                                        onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
+                                        className="bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]"
+                                    >
+                                        <option value="GLOBAL_ADMIN">Global Admin</option>
+                                        <option value="SUPER_ADMIN">Super Admin</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setShowInviteModal(false)} className="flex-1 py-3 border border-tactical-border text-tactical-muted text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-brand-midnight transition-all">Abort</button>
+                                <button type="submit" disabled={isInviting} className="flex-2 px-12 py-3 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] shadow-[0_0_24px_rgba(0,194,255,0.2)] transition-all disabled:opacity-50">
+                                    {isInviting ? 'Transmitting...' : 'Transmit Invite'}
+                                </button>
+                            </div>
+                        </form>
+                    </Card>
+                </div>
+            )}
             <Card className="overflow-hidden">
                 <TableHeader cols={['Administrator', 'Role', 'Status', 'Last Access', 'Actions']} />
                 <div className="divide-y divide-tactical-border">
