@@ -1,6 +1,6 @@
 import type { User } from '../types/user';
 
-const API_URL = 'http://localhost:5000/api'; // Standard tactical port
+const API_URL = 'http://146.141.180.199:5000/api';
 
 export interface LoginResponse {
     token: string;
@@ -85,3 +85,5 @@ export const authService = {
         return response.json();
     }
 };
+
+export const getAuthToken = () => authService.getToken();

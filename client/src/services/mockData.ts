@@ -1,4 +1,4 @@
-import type { NFCCheckpoint, ShiftAssignment, SiteIncident, OBEntry, Site, PaymentRecord, SupportTicket, MaintenanceLog, OnboardingRequest, Post, Security } from '../types/user';
+import type { User, Tenant, NFCCheckpoint, ShiftAssignment, SiteIncident, OBEntry, Site, PaymentRecord, SupportTicket, MaintenanceLog, OnboardingRequest, Post, Security } from '../types/user';
 
 // ─── Mock Credentials ──────────────────────────────────────────────────────
 //  GLOBAL COMMAND (Super Admin): admin@gladiator.pro / Gladiator@2025
@@ -14,13 +14,14 @@ export const mockCredentials: Record<string, { password: string; userId: string 
 };
 
 export const mockUsers: Record<string, User> = {
-    '1': { id: '1', name: 'Marcus Global', email: 'admin@gladiator.pro', role: 'super-admin' },
-    '2': { id: '2', name: 'John Tenant', email: 'ceo@securecorp.com', role: 'tenant-admin', tenantId: 'tenant-1' },
-    '3': { id: '3', name: 'Sarah Supervisor', email: 'sarah@northsector.com', role: 'site-manager', tenantId: 'tenant-1', siteId: 'site-1' },
-    '4': { id: '4', name: 'Julius Ceasar', email: 'julius@gladiator.pro', role: 'global-admin' },
+    '1': { id: '1', name: 'Marcus Global', email: 'admin@gladiator.pro', role: 'SUPER_ADMIN' },
+    '2': { id: '2', name: 'John Tenant', email: 'ceo@securecorp.com', role: 'TENANT_OWNER', tenantId: 'tenant-1' },
+    '3': { id: '3', name: 'Sarah Supervisor', email: 'sarah@northsector.com', role: 'SUPERVISOR', tenantId: 'tenant-1', siteId: 'site-1' },
+    '4': { id: '4', name: 'Julius Ceasar', email: 'julius@gladiator.pro', role: 'SUPER_ADMIN' },
 };
 
 export const mockTenants: Tenant[] = [
+    { id: '6df6b158-b615-4fa8-beef-6323a78018ce', name: 'Doba Fire And Security', status: 'active', subscriptionPlan: 'enterprise', officers: 120, contactEmail: 'manager@dobafire.co.za', location: 'Johannesburg, South Africa', createdAt: '2026-03-12', nextBillingDate: '2027-03-12', monthlyFee: 8500 },
     { id: 'tenant-1', name: 'SecureCorp Solutions', status: 'active', subscriptionPlan: 'enterprise', officers: 320, contactEmail: 'ceo@securecorp.com', location: 'Johannesburg, GP', createdAt: '2025-01-01', nextBillingDate: '2026-03-01', monthlyFee: 12999 },
     { id: 'tenant-2', name: 'Ironclad Security Ltd', status: 'active', subscriptionPlan: 'pro', officers: 148, contactEmail: 'ops@ironclad.co.za', location: 'Cape Town, WC', createdAt: '2025-02-15', nextBillingDate: '2026-03-15', monthlyFee: 5999 },
     { id: 'tenant-3', name: 'Vanguard Patrol Inc.', status: 'onboarding', subscriptionPlan: 'pro', officers: 96, contactEmail: 'admin@vanguard.co.za', location: 'Durban, KZN', createdAt: '2026-01-20', nextBillingDate: '2026-03-20', monthlyFee: 5999 },

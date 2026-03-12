@@ -1,23 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     LayoutDashboard, Users, Shield, Clock,
     Map, AlertTriangle, CheckCircle2, XCircle, Radio,
     Plus, Edit3, Trash2, MapPin, X, Zap, User as UserIcon, ChevronLeft, Search
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
-import {
-    mockCheckpoints as initialCheckpoints,
-    mockShifts as initialShifts,
-    mockSiteIncidents as initialIncidents,
-    mockOfficers,
-    mockOBEntries as initialOBEntries,
-    mockPosts as initialPosts
-} from '../../services/mockData';
-import type { NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry, Post } from '../../types/user';
+import { authService } from '../../services/authService';
+import type { Site, NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
-import { authService } from '../../services/authService';
 import { useTenant } from '../../contexts/TenantContext';
+import { tacticalService } from '../../services/tacticalService';
+import { obEntryService } from '../../services/obEntryService';
 
 // --- Types ---
 type SiteView = 'operations' | 'shifts' | 'patrols' | 'guards' | 'incidents' | 'orders' | 'profile' | 'security-profile' | 'ob-book';
@@ -59,12 +53,14 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     const [activeView, setActiveView] = useState<SiteView>('operations');
 
     // --- State ---
-    const [checkpoints, setCheckpoints] = useState<NFCCheckpoint[]>(initialCheckpoints);
-    const [shifts, setShifts] = useState<ShiftAssignment[]>(initialShifts);
-    const [incidents] = useState<SiteIncident[]>(initialIncidents);
-    const [siteOfficers] = useState<Officer[]>(mockOfficers.filter(o => o.siteId === 'site-1'));
-    const [obEntries] = useState<OBEntry[]>(initialOBEntries);
-    const [posts] = useState<Post[]>(initialPosts.filter(p => p.siteId === 'site-1'));
+    const [checkpoints, setCheckpoints] = useState<NFCCheckpoint[]>([]);
+    const [sites, setSites] = useState<Site[]>([]);
+    const [shifts, setShifts] = useState<ShiftAssignment[]>([]);
+    const [incidents, setIncidents] = useState<SiteIncident[]>([]);
+    const [siteOfficers, setSiteOfficers] = useState<Officer[]>([]);
+    const [obEntries, setObEntries] = useState<OBEntry[]>([]);
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     // --- Modals ---
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
@@ -78,6 +74,91 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     const [isSendingInvite, setIsSendingInvite] = useState(false);
     const [inviteError, setInviteError] = useState('');
     const { currentTenant } = useTenant();
+
+    // --- Data Fetching ---
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                const [sitesData, shiftsData, personnelData, obData, incidentsData, checkpointsData] = await Promise.all([
+                    tacticalService.getSites(),
+                    tacticalService.getShifts(),
+                    tacticalService.getPersonnel(),
+                    obEntryService.getEntries(),
+                    tacticalService.getIncidents(),
+                    tacticalService.getCheckpoints()
+                ]);
+
+                setSites(sitesData);
+                // Map OB Entries
+                const mappedOBEntries: OBEntry[] = obData.map((e: any) => ({
+                    id: e.id,
+                    siteId: e.siteId || '',
+                    postId: e.postId || '',
+                    obNo: e.incidentType?.toUpperCase() || 'GENERAL',
+                    time: new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    date: new Date(e.createdAt).toLocaleDateString(),
+                    officerName: e.user?.name || 'Unknown Officer',
+                    natureOfOccurrence: e.description || 'No description provided'
+                }));
+                setObEntries(mappedOBEntries);
+
+                // Map Personnel to Officers
+                const mappedOfficers: Officer[] = personnelData.map((p: any) => ({
+                    id: p.id,
+                    tenantId: currentTenant?.id || '',
+                    siteId: p.siteId || '',
+                    name: p.name || p.email,
+                    role: p.role,
+                    status: p.status || 'off-duty'
+                }));
+                setSiteOfficers(mappedOfficers);
+
+                // Map Shifts
+                const mappedShifts: ShiftAssignment[] = shiftsData.map((s: any) => ({
+                    id: s.id,
+                    siteId: s.siteId,
+                    officerId: s.officerId,
+                    officerName: s.officer?.name || 'Unknown',
+                    postId: s.postId,
+                    startTime: s.startTime,
+                    endTime: s.endTime,
+                    status: s.status,
+                    radioChannel: s.radioChannel
+                }));
+                setShifts(mappedShifts);
+
+                // Map Incidents
+                const mappedIncidents: SiteIncident[] = incidentsData.map((i: any) => ({
+                    id: i.id,
+                    siteId: i.siteId,
+                    reference: i.reference,
+                    description: i.description,
+                    severity: i.severity,
+                    status: i.status,
+                    reportedBy: i.reportedBy,
+                    timestamp: new Date(i.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }));
+                setIncidents(mappedIncidents);
+
+                // Map Checkpoints
+                setCheckpoints(checkpointsData);
+
+                // Extract all posts from sites
+                const allPosts: Post[] = sitesData.flatMap((s: any) => s.posts || []);
+                setPosts(allPosts);
+
+            } catch (error) {
+                console.error('Failed to load tactical data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+        const interval = setInterval(fetchData, 60000); // Periodic refresh
+        return () => clearInterval(interval);
+    }, [currentTenant]);
 
     // --- Actions ---
     const saveShift = (data: Partial<ShiftAssignment>) => {
@@ -912,7 +993,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         const entriesWithAIO = useMemo(() => {
             if (!selectedPost) return [];
 
-            const enhanced: OBEntry[] = initialOBEntries.filter(e => e.postId === selectedPost);
+            const enhanced: OBEntry[] = obEntries.filter(e => e.postId === selectedPost);
 
             for (let h = 0; h < 24; h++) {
                 const hourStr = h.toString().padStart(2, '0') + ':00';
@@ -921,11 +1002,11 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                 if (!hasEntry) {
                     enhanced.push({
                         id: `aio-${selectedPost}-${hourStr}`,
-                        siteId: 'site-1',
+                        siteId: sites[0]?.id || '',
                         postId: selectedPost,
                         obNo: `SYS/${selectedPost.toUpperCase().substring(0, 2)}/${hourStr}`,
                         time: hourStr,
-                        date: '2025-12-29',
+                        date: new Date().toLocaleDateString(),
                         officerName: 'SYSTEM',
                         natureOfOccurrence: 'A.I.O. (All In Order) — Post Verification Complete.',
                     });
