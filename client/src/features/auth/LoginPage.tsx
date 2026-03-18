@@ -14,14 +14,6 @@ const demoAccounts = [
         color: 'brand-cyan',
     },
     {
-        role: 'SUPER_ADMIN' as UserRole,
-        label: 'Global Command',
-        email: 'admin@gladiator.pro',
-        password: 'Gladiator@2025',
-        description: 'Super Admin Oversight',
-        color: 'brand-cyan',
-    },
-    {
         role: 'TENANT_OWNER' as UserRole,
         label: 'Tenant Admin',
         email: 'tenant@gladiator.pro',
@@ -101,7 +93,7 @@ export function LoginPage() {
                         <p className="text-[10px] font-black text-tactical-muted uppercase tracking-widest mb-4">Demo Accounts — Click to Fill →</p>
                         {demoAccounts.map((acc) => (
                             <button
-                                key={acc.role}
+                                key={acc.email}
                                 onClick={() => fillDemo(acc)}
                                 className="w-full flex items-center gap-4 p-4 bg-tactical-surface border border-tactical-border rounded-2xl hover:border-brand-cyan/40 hover:bg-brand-midnight/60 transition-all group text-left"
                             >
@@ -189,7 +181,7 @@ export function LoginPage() {
                         <div className="grid grid-cols-3 gap-2">
                             {demoAccounts.map((acc) => (
                                 <button
-                                    key={acc.role}
+                                    key={acc.email}
                                     onClick={() => loginByRole(acc.role)}
                                     className="py-2.5 px-3 bg-brand-midnight border border-tactical-border rounded-xl text-[9px] font-black text-white uppercase tracking-widest hover:border-brand-cyan/40 hover:text-brand-cyan transition-all"
                                 >

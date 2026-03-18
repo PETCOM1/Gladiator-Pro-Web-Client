@@ -1,6 +1,6 @@
 import { getAuthToken } from './authService';
 
-const API_URL = 'http://146.141.180.199:5000/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const obEntryService = {
     async getEntries() {
