@@ -6,12 +6,17 @@ import {
     Lock, Mail, Building, User as UserIcon, Radio, ChevronLeft, Zap
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
-import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers as initialUsers, mockOBEntries as initialOBEntries, mockPosts as initialPosts } from '../../services/mockData';
+import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers as initialUsers, mockPosts as initialPosts } from '../../services/mockData';
+
 import type { Site, Officer, User, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
 import { authService } from '../../services/authService';
+import { obEntryService } from '../../services/obEntryService';
+import { tacticalService } from '../../services/tacticalService';
 import { useTenant } from '../../contexts/TenantContext';
+
+
 
 // --- Types ---
 type TenantView = 'overview' | 'sites' | 'supervisors' | 'officers' | 'analytics' | 'settings' | 'profile' | 'ob-book';
@@ -70,8 +75,9 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         email: 'ceo@securecorp.com',
         branding: 'Tactical'
     });
-    const [obEntries] = useState<OBEntry[]>(initialOBEntries);
+    const [obEntries, setObEntries] = useState<OBEntry[]>([]);
     const [posts] = useState<Post[]>(initialPosts);
+
 
     // --- Modals State ---
     const [isSupModalOpen, setIsSupModalOpen] = useState(false);
@@ -79,7 +85,10 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assigningSite, setAssigningSite] = useState<Site | null>(null);
     const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
+    const [isAddPostModalOpen, setIsAddPostModalOpen] = useState(false);
+    const [addingPostSite, setAddingPostSite] = useState<Site | null>(null);
     const [isSendingInvite, setIsSendingInvite] = useState(false);
+
     const [inviteError, setInviteError] = useState('');
     const { currentTenant } = useTenant();
 
@@ -143,6 +152,38 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         ));
         setIsAssignModalOpen(false);
     };
+
+    // --- Post Actions ---
+    const savePost = async (data: { name: string; description: string }) => {
+        if (!addingPostSite) return;
+        try {
+            await tacticalService.createPost(addingPostSite.id, data);
+            // Refresh sites to show updated post count or list
+            const updatedSites = await tacticalService.getSites();
+            setSites(updatedSites);
+            setIsAddPostModalOpen(false);
+            setAddingPostSite(null);
+        } catch (err) {
+            console.error('Failed to save post:', err);
+        }
+    };
+
+
+    // --- Fetch OB Entries ---
+    useEffect(() => {
+        if (activeView === 'ob-book') {
+            const fetchEntries = async () => {
+                try {
+                    const data = await obEntryService.getEntries();
+                    setObEntries(data);
+                } catch (error) {
+                    console.error('Failed to fetch OB entries:', error);
+                }
+            };
+            fetchEntries();
+        }
+    }, [activeView]);
+
 
     // --- Views ---
 
@@ -256,8 +297,17 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                                     <span className="text-[10px] font-black text-tactical-muted uppercase tracking-widest">Officers</span>
                                     <span className="text-xs font-bold text-white">{site.totalOfficers} Units</span>
                                 </div>
+                                <div className="pt-4 border-t border-tactical-border/30 flex gap-2">
+                                    <button
+                                        onClick={() => { setAddingPostSite(site); setIsAddPostModalOpen(true); }}
+                                        className="flex-1 py-2 bg-brand-midnight border border-tactical-border rounded-xl text-[9px] font-black text-brand-cyan uppercase tracking-widest hover:border-brand-cyan/40 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Plus size={10} /> Add Tactical Post
+                                    </button>
+                                </div>
                             </div>
                         </div>
+
                     ))}
                     <button
                         onClick={() => setIsAddSiteModalOpen(true)}
@@ -298,6 +348,38 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         </div>
                     </form>
                 </Modal>
+
+                <Modal isOpen={isAddPostModalOpen} onClose={() => setIsAddPostModalOpen(false)} title={`Add Post: ${addingPostSite?.name}`}>
+                    <form
+                        className="space-y-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            savePost({
+                                name: String(formData.get('name')),
+                                description: String(formData.get('description'))
+                            });
+                        }}
+                    >
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Post Name</label>
+                            <input name="name" required placeholder="e.g. South Gate / Perimeter Alpha" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Description</label>
+                            <textarea name="description" placeholder="Tactical duties for this post..." className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 min-h-[100px]" />
+                        </div>
+                        <div className="pt-4 flex gap-3">
+                            <button type="submit" className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:scale-[1.02] transition-all">
+                                Establish Post
+                            </button>
+                            <button type="button" onClick={() => setIsAddPostModalOpen(false)} className="px-6 border border-tactical-border text-tactical-muted font-black text-[10px] uppercase tracking-widest rounded-xl hover:text-white transition-all">
+                                Abort
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+
 
                 <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title={`Assign Supervisor: ${assigningSite?.name}`}>
                     <div className="space-y-4">
@@ -684,11 +766,20 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         const entriesWithAIO = useMemo(() => {
             if (!selectedPost) return [];
-            const enhanced: OBEntry[] = obEntries.filter(e => e.postId === selectedPost);
+            // Filter entries for the selected post
+            const realEntries = obEntries.filter(e => e.postId === selectedPost);
+
+            // Create AIO (All In Order) entries for a 24-hour cycle
+            const enhanced: any[] = [...realEntries];
 
             for (let h = 0; h < 24; h++) {
                 const hourStr = h.toString().padStart(2, '0') + ':00';
-                const hasEntry = enhanced.some(e => e.time === hourStr);
+                
+                // Check if there's any real entry within that hour
+                const hasEntry = realEntries.some(e => {
+                    const entryTime = new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    return entryTime.startsWith(h.toString().padStart(2, '0'));
+                });
 
                 if (!hasEntry) {
                     enhanced.push({
@@ -697,7 +788,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         postId: selectedPost,
                         obNo: `SYS/${selectedPost.toUpperCase().substring(0, 2)}/${hourStr}`,
                         time: hourStr,
-                        date: '2025-12-29',
+                        createdAt: new Date().toISOString().split('T')[0] + `T${hourStr}:00.000Z`,
                         officerName: 'SYSTEM',
                         natureOfOccurrence: 'A.I.O. (All In Order) — Post Verification Complete.',
                     });
@@ -705,19 +796,27 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
             }
 
             return enhanced.sort((a, b) => {
-                const getScore = (time: string) => {
-                    const h = parseInt(time.split(':')[0]);
+                const getTimeScore = (dateStr: string) => {
+                    const d = new Date(dateStr);
+                    const h = d.getHours();
+                    // Shifted score to start at 06:00
                     return h >= 6 ? h - 6 : h + 18;
                 };
-                return getScore(a.time) - getScore(b.time);
+                return getTimeScore(a.createdAt) - getTimeScore(b.createdAt);
             });
-        }, [selectedPost, selectedSite]);
+        }, [selectedPost, selectedSite, obEntries]);
 
-        const filteredEntries = entriesWithAIO.filter((entry: OBEntry) => {
-            if (!showAutomated && entry.officerName === 'SYSTEM') return false;
-            return entry.natureOfOccurrence.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                entry.obNo.toLowerCase().includes(searchQuery.toLowerCase());
+        const filteredEntries = entriesWithAIO.filter((entry: any) => {
+
+            const content = entry.natureOfOccurrence || entry.description || '';
+            const officer = entry.officerName || entry.user?.name || '';
+            const obNo = entry.obNo || entry.id.substring(0, 8).toUpperCase();
+
+            if (!showAutomated && officer === 'SYSTEM') return false;
+            return content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                obNo.toLowerCase().includes(searchQuery.toLowerCase());
         });
+
 
         const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
         const paginated = filteredEntries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -821,26 +920,35 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                         <span className="col-span-8 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Nature of Occurrence</span>
                     </div>
                     <div className="divide-y divide-tactical-border">
-                        {paginated.map((entry: OBEntry) => (
-                            <div key={entry.id} className="grid grid-cols-12 px-6 py-4 items-start hover:bg-brand-midnight/20 transition-all group">
-                                <span className="col-span-1 text-[11px] font-bold text-brand-cyan/80 font-mono tracking-tighter">{entry.obNo}</span>
-                                <span className="col-span-1 text-[11px] font-bold text-white/60 font-mono">{entry.time}</span>
-                                <div className="col-span-2 pr-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className={cn(
-                                            "w-1.5 h-1.5 rounded-full shrink-0",
-                                            entry.officerName === 'SYSTEM' ? 'bg-tactical-muted/40 shadow-[0_0_8px_rgba(156,163,175,0.2)]' : 'bg-brand-cyan shadow-[0_0_8px_rgba(0,194,255,0.4)]'
-                                        )} />
-                                        <span className="text-xs font-black text-white uppercase tracking-tight truncate">{entry.officerName}</span>
+                        {paginated.map((entry: any) => {
+                            const isSystem = entry.officerName === 'SYSTEM' || !entry.user;
+                            const officerName = entry.officerName || entry.user?.name || 'Unknown';
+                            const natureOfOccurrence = entry.natureOfOccurrence || entry.description;
+                            const time = entry.time || new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                            const obNo = entry.obNo || `OB-${entry.id.substring(0, 5).toUpperCase()}`;
+
+                            return (
+                                <div key={entry.id} className="grid grid-cols-12 px-6 py-4 items-start hover:bg-brand-midnight/20 transition-all group">
+                                    <span className="col-span-1 text-[11px] font-bold text-brand-cyan/80 font-mono tracking-tighter">{obNo}</span>
+                                    <span className="col-span-1 text-[11px] font-bold text-white/60 font-mono">{time}</span>
+                                    <div className="col-span-2 pr-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={cn(
+                                                "w-1.5 h-1.5 rounded-full shrink-0",
+                                                isSystem ? 'bg-tactical-muted/40 shadow-[0_0_8px_rgba(156,163,175,0.2)]' : 'bg-brand-cyan shadow-[0_0_8px_rgba(0,194,255,0.4)]'
+                                            )} />
+                                            <span className="text-xs font-black text-white uppercase tracking-tight truncate">{officerName}</span>
+                                        </div>
+                                    </div>
+                                    <div className="col-span-8 pr-4">
+                                        <p className="text-xs font-medium text-white/90 leading-relaxed italic border-l-2 border-brand-cyan/10 pl-4 py-1">
+                                            {natureOfOccurrence}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="col-span-8 pr-4">
-                                    <p className="text-xs font-medium text-white/90 leading-relaxed italic border-l-2 border-brand-cyan/10 pl-4 py-1">
-                                        {entry.natureOfOccurrence}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
+
                     </div>
                 </div>
 

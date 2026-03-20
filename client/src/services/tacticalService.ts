@@ -26,6 +26,18 @@ export const tacticalService = {
         return response.json();
     },
 
+    async getRosterStats(siteId?: string) {
+        const token = getAuthToken();
+        const url = siteId ? `${API_URL}/tactical/shifts/stats?siteId=${siteId}` : `${API_URL}/tactical/shifts/stats`;
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (!response.ok) throw new Error('Failed to fetch roster stats');
+        return response.json();
+    },
+
     async getPersonnel() {
         const token = getAuthToken();
         const response = await fetch(`${API_URL}/tactical/personnel`, {
@@ -59,5 +71,51 @@ export const tacticalService = {
         });
         if (!response.ok) throw new Error('Failed to fetch checkpoints');
         return response.json();
+    },
+    
+    async createPost(siteId: string, data: { name: string; description?: string }) {
+        const token = getAuthToken();
+        const response = await fetch(`${API_URL}/tactical/sites/${siteId}/posts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error('Failed to create post');
+        return response.json();
+    },
+
+    async assignShift(data: any) {
+        const token = getAuthToken();
+        const response = await fetch(`${API_URL}/tactical/shifts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to assign shift');
+        }
+        return response.json();
+    },
+
+    async deleteShift(id: string) {
+        const token = getAuthToken();
+        const response = await fetch(`${API_URL}/tactical/shifts/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to delete shift');
+        }
+        return true;
     }
 };

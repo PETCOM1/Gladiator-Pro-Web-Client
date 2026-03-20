@@ -6,15 +6,19 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
 import { authService } from '../../services/authService';
-import type { Site, NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry, Post } from '../../types/user';
+import { tacticalService } from '../../services/tacticalService';
+import { obEntryService } from '../../services/obEntryService';
+import { visitorService } from '../../services/visitorService';
+import type { Site, NFCCheckpoint, ShiftAssignment, SiteIncident, Officer, OBEntry, Post, Visitor } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
 import { cn } from '@/utils/cn';
 import { useTenant } from '../../contexts/TenantContext';
-import { tacticalService } from '../../services/tacticalService';
-import { obEntryService } from '../../services/obEntryService';
+
+
 
 // --- Types ---
-type SiteView = 'operations' | 'shifts' | 'patrols' | 'guards' | 'incidents' | 'orders' | 'profile' | 'security-profile' | 'ob-book';
+type SiteView = 'operations' | 'shifts' | 'patrols' | 'guards' | 'incidents' | 'orders' | 'profile' | 'security-profile' | 'ob-book' | 'visitors';
+
 
 // --- Shared Components ---
 
@@ -60,6 +64,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     const [siteOfficers, setSiteOfficers] = useState<Officer[]>([]);
     const [obEntries, setObEntries] = useState<OBEntry[]>([]);
     const [posts, setPosts] = useState<Post[]>([]);
+    const [visitors, setVisitors] = useState<Visitor[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // --- Modals ---
@@ -80,28 +85,21 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [sitesData, shiftsData, personnelData, obData, incidentsData, checkpointsData] = await Promise.all([
+                const [sitesData, shiftsData, personnelData, obData, incidentsData, checkpointsData, visitorsData] = await Promise.all([
                     tacticalService.getSites(),
                     tacticalService.getShifts(),
                     tacticalService.getPersonnel(),
                     obEntryService.getEntries(),
                     tacticalService.getIncidents(),
-                    tacticalService.getCheckpoints()
+                    tacticalService.getCheckpoints(),
+                    visitorService.getVisitors()
                 ]);
 
                 setSites(sitesData);
-                // Map OB Entries
-                const mappedOBEntries: OBEntry[] = obData.map((e: any) => ({
-                    id: e.id,
-                    siteId: e.siteId || '',
-                    postId: e.postId || '',
-                    obNo: e.incidentType?.toUpperCase() || 'GENERAL',
-                    time: new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    date: new Date(e.createdAt).toLocaleDateString(),
-                    officerName: e.user?.name || 'Unknown Officer',
-                    natureOfOccurrence: e.description || 'No description provided'
-                }));
-                setObEntries(mappedOBEntries);
+                setVisitors(visitorsData);
+
+                setObEntries(obData);
+
 
                 // Map Personnel to Officers
                 const mappedOfficers: Officer[] = personnelData.map((p: any) => ({
@@ -124,7 +122,8 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                     startTime: s.startTime,
                     endTime: s.endTime,
                     status: s.status,
-                    radioChannel: s.radioChannel
+                    type: s.type,
+                    date: s.date
                 }));
                 setShifts(mappedShifts);
 
@@ -161,26 +160,45 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
     }, [currentTenant]);
 
     // --- Actions ---
-    const saveShift = (data: Partial<ShiftAssignment>) => {
-        if (editingShift) {
-            setShifts(prev => prev.map(s => s.id === editingShift.id ? { ...s, ...data } : s));
-        } else {
-            const officer = siteOfficers.find(o => o.id === data.officerId);
-            const newShift: ShiftAssignment = {
-                id: `sh-${Date.now()}`,
-                siteId: 'site-1',
-                officerId: data.officerId || '',
-                officerName: officer?.name || 'Unknown',
-                postId: data.postId || '',
-                startTime: data.startTime || '06:00',
-                endTime: data.endTime || '14:00',
-                status: 'active',
-                radioChannel: data.radioChannel || '01'
-            };
-            setShifts(prev => [...prev, newShift]);
+    const saveShift = async (data: Partial<ShiftAssignment>) => {
+        try {
+            if (editingShift) {
+                // For now, we update local state for simple edits
+                setShifts(prev => prev.map(s => s.id === editingShift.id ? { ...s, ...data } : s));
+            } else {
+                const shiftData = {
+                    ...data,
+                    siteId: sites[0]?.id || 'site-1',
+                };
+                const saved = await tacticalService.assignShift(shiftData);
+                
+                // Map the saved response to include officer name for UI
+                const officer = siteOfficers.find(o => o.id === saved.officerId);
+                const enrichedSaved = {
+                    ...saved,
+                    officerName: officer?.name || saved.officer?.name || 'Unknown'
+                };
+                
+                setShifts(prev => [enrichedSaved, ...prev]);
+            }
+            setIsShiftModalOpen(false);
+            setEditingShift(null);
+        } catch (error: any) {
+            console.error('Failed to save shift:', error);
+            alert(error.message || 'Failed to save shift assignment. Please check your connection.');
         }
-        setIsShiftModalOpen(false);
-        setEditingShift(null);
+    };
+
+    const deleteShift = async (id: string) => {
+        if (confirm('Are you sure you want to terminate this shift assignment?')) {
+            try {
+                await tacticalService.deleteShift(id);
+                setShifts(prev => prev.filter(s => s.id !== id));
+            } catch (error: any) {
+                console.error('Failed to delete shift:', error);
+                alert(error.message || 'Failed to delete shift assignment.');
+            }
+        }
     };
 
 
@@ -320,8 +338,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1.5 px-2 py-1 bg-brand-cyan/5 border border-brand-cyan/20 rounded">
-                                            <Radio size={10} className="text-brand-cyan" />
-                                            <span className="text-[9px] font-black text-brand-cyan">{s.radioChannel}</span>
+                                            <span className="text-[9px] font-black text-brand-cyan uppercase">{s.type || 'DAY'}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -350,32 +367,57 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         );
     };
 
-    const ShiftScheduleView = () => {
+    const RosterView = () => {
         const [currentPage, setCurrentPage] = useState(1);
-        const PAGE_SIZE = 5;
+        const PAGE_SIZE = 10;
+
+        const stats = useMemo(() => {
+            return {
+                day: shifts.filter(s => s.type === 'DAY' || !s.type).length,
+                night: shifts.filter(s => s.type === 'NIGHT').length,
+                standby: shifts.filter(s => s.type === 'STANDBY').length,
+                off: shifts.filter(s => s.type === 'LEAVE' || s.type === 'SICK').length,
+            };
+        }, [shifts]);
 
         const totalPages = Math.ceil(shifts.length / PAGE_SIZE);
         const paginated = shifts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
         return (
-            <div>
-                <SectionHeader sub="Deploy personnel and manage tactical rotations" />
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <SectionHeader sub="Strategically deploy and balance your tactical roster" />
+                
+                {/* Balancing Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    {[
+                        { label: 'Day Shift', count: stats.day, color: 'text-brand-cyan', bg: 'bg-brand-cyan/10' },
+                        { label: 'Night Shift', count: stats.night, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+                        { label: 'Standby Unit', count: stats.standby, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+                        { label: 'Leave/Off', count: stats.off, color: 'text-red-400', bg: 'bg-red-400/10' },
+                    ].map(stat => (
+                        <div key={stat.label} className={cn("p-4 rounded-2xl border border-tactical-border/50", stat.bg)}>
+                            <p className="text-[10px] font-black text-tactical-muted uppercase tracking-[0.2em] mb-1">{stat.label}</p>
+                            <p className={cn("text-2xl font-black", stat.color)}>{stat.count}</p>
+                        </div>
+                    ))}
+                </div>
+
                 <div className="mb-6 flex justify-between items-center">
                     <div className="flex gap-2">
-                        {['Day Shift', 'Night Shift', 'Standby'].map(t => (
+                        {['All Ranks', 'Day', 'Night', 'Off'].map(t => (
                             <button key={t} className="px-4 py-2 rounded-xl bg-tactical-surface border border-tactical-border text-[10px] font-black uppercase tracking-widest text-tactical-muted hover:border-brand-cyan/40 hover:text-white transition-all">{t}</button>
                         ))}
                     </div>
                     <button
                         onClick={() => { setEditingShift(null); setIsShiftModalOpen(true); }}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-brand-cyan text-brand-midnight text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,194,255,0.2)]"
                     >
-                        <Plus size={14} /> Assign New Shift
+                        <Plus size={14} /> Assign Roster Slot
                     </button>
                 </div>
 
-                <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
+                <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-2xl">
                     <div className="grid grid-cols-5 px-6 py-4 border-b border-tactical-border/50 bg-brand-midnight/30">
-                        {['Personnel', 'Tactical Post', 'Channel', 'Duration', 'Action'].map(h => (
+                        {['Personnel', 'Tactical Assignment', 'Type', 'Scheduled Time', 'Action'].map(h => (
                             <span key={h} className="text-[9px] font-black text-tactical-muted uppercase tracking-widest">{h}</span>
                         ))}
                     </div>
@@ -388,14 +430,24 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                     </div>
                                     <span className="text-sm font-bold text-white">{s.officerName}</span>
                                 </div>
-                                <span className="text-xs text-tactical-muted uppercase tracking-widest font-black">
-                                    {posts.find(p => p.id === s.postId)?.name || 'Unknown'}
+                                <span className={cn(
+                                    "text-xs uppercase tracking-widest font-black",
+                                    s.type === 'LEAVE' || s.type === 'SICK' ? "text-red-400" : "text-tactical-muted"
+                                )}>
+                                    {s.type === 'LEAVE' ? 'ON LEAVE' : s.type === 'SICK' ? 'SICK LEAVE' : (posts.find(p => p.id === s.postId)?.name || 'UNASSIGNED')}
                                 </span>
-                                <div className="flex items-center gap-1.5 text-brand-cyan">
-                                    <Radio size={12} />
-                                    <span className="text-[10px] font-black">{s.radioChannel}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn(
+                                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border",
+                                        s.type === 'DAY' ? "bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20" :
+                                        s.type === 'NIGHT' ? "bg-amber-400/10 text-amber-400 border-amber-400/20" :
+                                        s.type === 'STANDBY' ? "bg-purple-400/10 text-purple-400 border-purple-400/20" :
+                                        "bg-red-400/10 text-red-400 border-red-400/20"
+                                    )}>
+                                        {s.type || 'DAY'}
+                                    </span>
                                 </div>
-                                <span className="text-xs text-white font-medium">{s.startTime} - {s.endTime}</span>
+                                <span className="text-xs text-white font-medium font-mono">{s.startTime} - {s.endTime}</span>
                                 <div className="flex gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => { setEditingShift(s); setIsShiftModalOpen(true); }}
@@ -404,7 +456,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                         <Edit3 size={14} />
                                     </button>
                                     <button
-                                        onClick={() => setShifts(prev => prev.filter(sh => sh.id !== s.id))}
+                                        onClick={() => deleteShift(s.id)}
                                         className="p-2 rounded-lg bg-brand-midnight border border-tactical-border hover:border-red-500/40 text-red-400 transition-all"
                                     >
                                         <Trash2 size={14} />
@@ -422,45 +474,72 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                     resultRange={`${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, shifts.length)}`}
                 />
 
-                <Modal isOpen={isShiftModalOpen} onClose={() => setIsShiftModalOpen(false)} title={editingShift ? "Update Tactical Assignment" : "Initialize New Shift"}>
-                    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); saveShift({ officerId: String(formData.get('officerId')), postId: String(formData.get('postId')), radioChannel: String(formData.get('channel')), startTime: String(formData.get('start')), endTime: String(formData.get('end')) }); }}>
+                <Modal isOpen={isShiftModalOpen} onClose={() => setIsShiftModalOpen(false)} title={editingShift ? "Refine Tactical Roster" : "New Roster Deployment"}>
+                    <form className="space-y-4" onSubmit={(e) => { 
+                        e.preventDefault(); 
+                        const formData = new FormData(e.currentTarget); 
+                        saveShift({ 
+                            officerId: String(formData.get('officerId')), 
+                            postId: String(formData.get('postId')), 
+                            type: String(formData.get('type')) as any,
+                            startTime: String(formData.get('start')), 
+                            endTime: String(formData.get('end')),
+                            date: String(formData.get('date'))
+                        }); 
+                    }}>
                         <div>
-                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Deploy Officer</label>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Deploy Personnel</label>
                             <select name="officerId" defaultValue={editingShift?.officerId} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]">
                                 {siteOfficers.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                             </select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Post</label>
-                                <select name="postId" defaultValue={editingShift?.postId} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]">
-                                    {posts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Roster Type</label>
+                                <select name="type" defaultValue={editingShift?.type || 'DAY'} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-[10px] font-black uppercase text-brand-cyan focus:outline-none focus:border-brand-cyan/50 h-[46px]">
+                                    <option value="DAY">☀ DAY SHIFT</option>
+                                    <option value="NIGHT">☾ NIGHT SHIFT</option>
+                                    <option value="STANDBY">◈ STANDY UNIT</option>
+                                    <option value="LEAVE">✈ LEAVE</option>
+                                    <option value="SICK">✚ SICK LEAVE</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Comm Channel</label>
-                                <input name="channel" defaultValue={editingShift?.radioChannel} placeholder="01" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                                <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Tactical Post</label>
+                                <select name="postId" defaultValue={editingShift?.postId || ''} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]">
+                                    <option value="">No Assignment (Leave/Off)</option>
+                                    {posts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
+                             <div>
+                                <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Deploy Date</label>
+                                <input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-2 py-3 text-[10px] text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]" />
+                            </div>
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Shift Start</label>
-                                <input name="start" defaultValue={editingShift?.startTime || '06:00'} type="time" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]" />
+                                <input name="start" defaultValue={editingShift?.startTime || '06:00'} type="time" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-2 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]" />
                             </div>
                             <div>
                                 <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Shift End</label>
-                                <input name="end" defaultValue={editingShift?.endTime || '14:00'} type="time" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]" />
+                                <input name="end" defaultValue={editingShift?.endTime || '14:00'} type="time" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-2 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50 h-[46px]" />
                             </div>
                         </div>
-                        <button type="submit" className="w-full bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-4 rounded-xl hover:scale-[1.02] transition-all">
-                            {editingShift ? "Confirm Updates" : "Engage Assignment"}
-                        </button>
+
+                        <div className="pt-4 flex gap-3">
+                            <button type="submit" className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-4 rounded-xl hover:scale-[1.02] transition-all">
+                                {editingShift ? "Update Assignment" : "Initialize Deployment"}
+                            </button>
+                            <button type="button" onClick={() => setIsShiftModalOpen(false)} className="px-6 border border-tactical-border text-tactical-muted font-black text-[10px] uppercase tracking-widest rounded-xl hover:text-white transition-all">
+                                Cancel
+                            </button>
+                        </div>
                     </form>
                 </Modal>
             </div>
         );
     };
-
     const NFCPatrolsView = () => {
         const [currentPage, setCurrentPage] = useState(1);
         const [searchQuery, setSearchQuery] = useState('');
@@ -993,11 +1072,17 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         const entriesWithAIO = useMemo(() => {
             if (!selectedPost) return [];
 
-            const enhanced: OBEntry[] = obEntries.filter(e => e.postId === selectedPost);
+            const realEntries = obEntries.filter(e => e.postId === selectedPost);
+            const enhanced: any[] = [...realEntries];
 
             for (let h = 0; h < 24; h++) {
                 const hourStr = h.toString().padStart(2, '0') + ':00';
-                const hasEntry = enhanced.some(e => e.time === hourStr);
+                
+                // Check if there's any real entry within that hour
+                const hasEntry = realEntries.some(e => {
+                    const entryTime = new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    return entryTime.startsWith(h.toString().padStart(2, '0'));
+                });
 
                 if (!hasEntry) {
                     enhanced.push({
@@ -1006,7 +1091,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                         postId: selectedPost,
                         obNo: `SYS/${selectedPost.toUpperCase().substring(0, 2)}/${hourStr}`,
                         time: hourStr,
-                        date: new Date().toLocaleDateString(),
+                        createdAt: new Date().toISOString().split('T')[0] + `T${hourStr}:00.000Z`,
                         officerName: 'SYSTEM',
                         natureOfOccurrence: 'A.I.O. (All In Order) — Post Verification Complete.',
                     });
@@ -1014,23 +1099,31 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
             }
 
             return enhanced.sort((a, b) => {
-                // Tactical sorting for 06:00 start (06:00 -> 05:00)
-                const getScore = (time: string) => {
-                    const h = parseInt(time.split(':')[0]);
+                const getTimeScore = (dateStr: string) => {
+                    const d = new Date(dateStr);
+                    const h = d.getHours();
+                    // Shifted score to start at 06:00
                     return h >= 6 ? h - 6 : h + 18;
                 };
-                return getScore(a.time) - getScore(b.time);
+                return getTimeScore(a.createdAt) - getTimeScore(b.createdAt);
             });
-        }, [selectedPost]);
+        }, [selectedPost, sites, obEntries]);
 
-        const filteredEntries = entriesWithAIO.filter((entry: OBEntry) => {
-            if (!showAutomated && entry.officerName === 'SYSTEM') return false;
 
-            const matchesSearch = entry.natureOfOccurrence.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                entry.obNo.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesOfficer = officerFilter === 'all' || entry.officerName === officerFilter;
+
+        const filteredEntries = entriesWithAIO.filter((entry: any) => {
+            const officerName = entry.officerName || entry.user?.name || 'Unknown Officer';
+            const natureOfOccurrence = entry.natureOfOccurrence || entry.description || 'No description';
+            const obNo = entry.obNo || `OB-${entry.id.substring(0, 5).toUpperCase()}`;
+
+            if (!showAutomated && officerName === 'SYSTEM') return false;
+
+            const matchesSearch = natureOfOccurrence.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                obNo.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesOfficer = officerFilter === 'all' || officerName === officerFilter;
             return matchesSearch && matchesOfficer;
         });
+
 
         const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
         const paginated = filteredEntries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -1043,7 +1136,8 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                         {posts.map(post => {
                             const postLogs = obEntries.filter(e => e.postId === post.id);
-                            const lastEntry = postLogs.sort((a, b) => b.time.localeCompare(a.time))[0];
+                            const lastEntry = postLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
 
                             return (
                                 <button
@@ -1069,9 +1163,10 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                                 {lastEntry && (
                                                     <div>
                                                         <p className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1">Last Log</p>
-                                                        <p className="text-sm font-bold text-white">{lastEntry.time}</p>
+                                                        <p className="text-sm font-bold text-white">{new Date(lastEntry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                                     </div>
                                                 )}
+
                                                 <div>
                                                     <p className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1">Status</p>
                                                     <p className="text-sm font-bold text-emerald-400">NOMINAL</p>
@@ -1091,7 +1186,8 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         }
 
         const postName = posts.find(p => p.id === selectedPost)?.name;
-        const uniqueOfficers = Array.from(new Set(obEntries.filter(e => e.postId === selectedPost).map(e => e.officerName)));
+        const uniqueOfficers = Array.from(new Set(obEntries.filter(e => e.postId === selectedPost).map(e => e.user?.name || 'Unknown Officer')));
+
 
         return (
             <div className="animate-in fade-in slide-in-from-left-4 duration-500">
@@ -1166,7 +1262,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                         <span className="col-span-8 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Nature of Occurrence</span>
                     </div>
                     <div className="divide-y divide-tactical-border">
-                        {paginated.map((entry: OBEntry) => (
+                        {paginated.map((entry: any) => (
                             <div key={entry.id} className="grid grid-cols-12 px-6 py-4 items-start hover:bg-brand-midnight/20 transition-all group">
                                 <span className="col-span-1 text-[11px] font-bold text-brand-cyan/80 font-mono tracking-tighter">{entry.obNo}</span>
                                 <span className="col-span-1 text-[11px] font-bold text-white/60 font-mono">
@@ -1286,15 +1382,28 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         );
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex bg-brand-midnight items-center justify-center min-h-screen">
+                <div className="flex flex-col items-center gap-4">
+                    <Radio size={48} className="text-brand-cyan animate-pulse" />
+                    <p className="text-xs font-black text-brand-cyan uppercase tracking-[0.3em] animate-pulse">Initializing Site Command...</p>
+                </div>
+            </div>
+        );
+    }
+
     const sidebarItems = [
         { icon: <LayoutDashboard size={20} />, label: 'Site Operations', description: 'Real-time tactical monitoring', active: activeView === 'operations', onClick: () => setActiveView('operations') },
-        { icon: <Clock size={20} />, label: 'Shift Schedule', description: 'Deploy personnel and manage tactical rotations', active: activeView === 'shifts', onClick: () => setActiveView('shifts'), badge: shifts.length },
+        { icon: <Clock size={20} />, label: 'Tactical Roster', description: 'Deploy personnel and balance tactical rotations', active: activeView === 'shifts', onClick: () => setActiveView('shifts'), badge: shifts.length },
         { icon: <Map size={20} />, label: 'NFC Control', description: 'Manage physical scan points and patrol coverage', active: activeView === 'patrols', onClick: () => setActiveView('patrols') },
         { icon: <Users size={20} />, label: 'Active Guards', description: 'Real-time GPS tracking and biometric health monitoring', active: activeView === 'guards', onClick: () => setActiveView('guards') },
         { icon: <Radio size={20} />, label: 'Occurrence Book', description: 'Daily tactical ledger and incident reporting log', active: activeView === 'ob-book', onClick: () => setActiveView('ob-book') },
         { icon: <Shield size={20} />, label: 'Post Orders', description: 'Digital directive distribution for this sector', active: activeView === 'orders', onClick: () => setActiveView('orders') },
+        { icon: <Users size={20} />, label: 'Visitor Log', description: 'Real-time site visitor tracking and history', active: activeView === 'visitors', onClick: () => setActiveView('visitors'), badge: visitors.filter(v => v.status === 'signed-in').length },
         { icon: <AlertTriangle size={20} />, label: 'Incidents', description: 'Log and track site-specific security breaches', active: activeView === 'incidents', onClick: () => setActiveView('incidents'), badge: incidents.filter(i => i.status === 'open').length },
     ];
+
 
     return (
         <DashboardLayout
@@ -1306,12 +1415,14 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
             onProfileClick={() => setActiveView('profile')}
         >
             {activeView === 'operations' && <OperationsView />}
-            {activeView === 'shifts' && <ShiftScheduleView />}
+            {activeView === 'shifts' && <RosterView />}
             {activeView === 'patrols' && <NFCPatrolsView />}
             {activeView === 'guards' && <PersonnelRegistryView />}
             {activeView === 'security-profile' && <SecurityProfileView />}
             {activeView === 'ob-book' && <OccurrenceBookView />}
+            {activeView === 'visitors' && <VisitorsView visitors={visitors} />}
             {activeView === 'profile' && <ProfileSettingsView />}
+
             {activeView === 'orders' && (
                 <div className="p-12 text-center bg-tactical-surface border border-tactical-border rounded-3xl">
                     <Shield size={42} className="text-brand-cyan mx-auto mb-4 opacity-50" />
@@ -1325,9 +1436,104 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
         </DashboardLayout>
     );
 }
+
 // --- Sub-Views ---
 
+function VisitorsView({ visitors }: { visitors: Visitor[] }) {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [searchQuery, setSearchQuery] = useState('');
+    const PAGE_SIZE = 6;
+
+    const filtered = visitors.filter(v => 
+        v.surnameInitials.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.idNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.hostName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    return (
+        <div>
+            <SectionHeader sub="Record of all personnel entering and exiting the site" />
+            
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <div className="relative flex-1">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tactical-muted" />
+                    <input
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search by name, ID, or host..."
+                        className="w-full bg-tactical-surface border border-tactical-border rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-brand-cyan/50"
+                    />
+                </div>
+            </div>
+
+            <div className="bg-tactical-surface border border-tactical-border rounded-2xl overflow-hidden shadow-xl">
+                <div className="grid grid-cols-12 px-6 py-4 border-b border-tactical-border/50 bg-brand-midnight/30">
+                    <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Visitor</span>
+                    <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Identification</span>
+                    <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Host / Purpose</span>
+                    <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Vehicle</span>
+                    <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Signed In</span>
+                    <span className="col-span-2 text-[9px] font-black text-tactical-muted uppercase tracking-widest">Status</span>
+                </div>
+                <div className="divide-y divide-tactical-border">
+                    {paginated.map(v => (
+                        <div key={v.id} className="grid grid-cols-12 px-6 py-4 items-center hover:bg-brand-midnight/20 transition-all group">
+                            <div className="col-span-2">
+                                <p className="text-sm font-bold text-white">{v.surnameInitials}</p>
+                                <p className="text-[10px] text-tactical-muted">{v.cellNumber || 'N/A'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-[10px] text-white font-mono uppercase tracking-tighter">{v.idNumber || 'Manual Entry'}</p>
+                                <p className="text-[9px] text-tactical-muted uppercase">{v.institution || 'Private'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-[10px] text-white font-bold uppercase">{v.hostName || 'General Visit'}</p>
+                                <p className="text-[9px] text-tactical-muted line-clamp-1 italic">{v.purpose || 'No purpose stated'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-[10px] text-brand-cyan font-black uppercase tracking-widest font-mono">{v.vehicleReg || 'Pedestrian'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-[10px] text-white">{new Date(v.signedInAt).toLocaleDateString()}</p>
+                                <p className="text-[10px] text-tactical-muted">{new Date(v.signedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <span className={cn(
+                                    "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tight border",
+                                    v.status === 'signed-in' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-tactical-muted/10 text-tactical-muted border-tactical-border"
+                                )}>
+                                    {v.status === 'signed-in' ? 'Active' : 'Signed Out'}
+                                </span>
+                                {v.signedOutAt && (
+                                    <p className="text-[8px] text-tactical-muted mt-1 uppercase">Out: {new Date(v.signedOutAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {paginated.length === 0 && (
+                        <div className="px-6 py-12 text-center text-tactical-muted text-sm italic">No visitors on record for this sector.</div>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-4">
+                <TacticalPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={filtered.length}
+                    resultRange={filtered.length > 0 ? `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}` : '0 - 0'}
+                />
+            </div>
+        </div>
+    );
+}
+
 function IncidentsView({ incidents }: { incidents: SiteIncident[] }) {
+
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 4;
 

@@ -73,11 +73,13 @@ export interface ShiftAssignment {
     siteId: string;
     officerId: string;
     officerName: string;
-    postId: string; // References Post.id
+    postId: string | null; // References Post.id
     startTime: string;
     endTime: string;
     status: 'scheduled' | 'active' | 'completed';
     radioChannel?: string;
+    type?: 'DAY' | 'NIGHT' | 'STANDBY' | 'LEAVE' | 'SICK';
+    date?: string;
 }
 
 export const mockShifts: ShiftAssignment[] = [
@@ -99,15 +101,51 @@ export interface SiteIncident {
 
 export interface OBEntry {
     id: string;
-    siteId: string;
-    postId: string; // References Post.id
-    obNo: string;
-    time: string;
-    date: string;
-    officerName: string;
-    natureOfOccurrence: string;
-    pageNo?: string;
+    incidentType: string;
+    severity: string;
+    location?: string;
+    description: string;
+    image?: string;
+    userId: string;
+    user?: {
+        name: string;
+        email: string;
+    };
+    siteId?: string;
+    site?: {
+        name: string;
+    };
+    postId?: string;
+    post?: {
+        name: string;
+    };
+    tenantId: string;
+    createdAt: string;
+    updatedAt: string;
+    // Legacy fields for UI compatibility if needed
+    obNo?: string;
 }
+
+export interface Visitor {
+    id: string;
+    tenantId: string;
+    siteId: string;
+    surnameInitials: string;
+    idNumber?: string;
+    institution?: string;
+    vehicleReg?: string;
+    townVillage?: string;
+    cellNumber?: string;
+    purpose?: string;
+    hostName?: string;
+    status: 'signed-in' | 'signed-out';
+    signedInAt: string;
+    signedOutAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+
 
 export interface SystemHealth {
     status: 'operational' | 'degraded' | 'maintenance';
