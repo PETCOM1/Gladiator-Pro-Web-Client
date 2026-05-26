@@ -6,6 +6,7 @@ import { GlobalCommandDashboard } from '../features/dashboard/GlobalCommandDashb
 import { GlobalAdminDashboard } from '../features/dashboard/GlobalAdminDashboard';
 import { TenantAdminDashboard } from '../features/dashboard/TenantAdminDashboard';
 import { SiteManagerDashboard } from '../features/dashboard/SiteManagerDashboard';
+import { SiteManagementPage } from '../features/sites/SiteManagementPage';
 
 function AppRouter() {
   const { role, logout } = useTenant();
@@ -14,7 +15,7 @@ function AppRouter() {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/invitation" element={<InvitationPage />} />
+        <Route path="/accept-invitation" element={<InvitationPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -39,6 +40,9 @@ function AppRouter() {
             </div>
           )}
         </>
+      } />
+      <Route path="/sites" element={
+        role === 'TENANT_OWNER' ? <SiteManagementPage /> : <Navigate to="/" replace />
       } />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

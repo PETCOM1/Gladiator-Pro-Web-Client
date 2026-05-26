@@ -3,10 +3,10 @@ import {
     LayoutDashboard, Users, MapPin, Settings,
     BarChart3, Shield, Clock, Search, Plus,
     Edit3, Save, Trash2, X, Briefcase,
-    Lock, Mail, Building, User as UserIcon, Radio, ChevronLeft, Zap
+    Lock, Mail, Building, User as UserIcon, Radio, ChevronLeft, Zap, UserPlus
 } from 'lucide-react';
 import { DashboardLayout } from './layout/DashboardLayout';
-import { mockSites as initialSites, mockOfficers as initialOfficers, mockUsers as initialUsers, mockPosts as initialPosts } from '../../services/mockData';
+import { mockOfficers as initialOfficers, mockPosts as initialPosts } from '../../services/mockData';
 
 import type { Site, Officer, User, OBEntry, Post } from '../../types/user';
 import { TacticalPagination } from '../../components/ui/Pagination';
@@ -14,6 +14,7 @@ import { cn } from '@/utils/cn';
 import { authService } from '../../services/authService';
 import { obEntryService } from '../../services/obEntryService';
 import { tacticalService } from '../../services/tacticalService';
+import { siteService } from '../../services/siteService';
 import { useTenant } from '../../contexts/TenantContext';
 
 
@@ -65,11 +66,9 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [activeView, setActiveView] = useState<TenantView>('overview');
 
     // --- State ---
-    const [sites, setSites] = useState<Site[]>(initialSites.filter(s => s.tenantId === 'tenant-1'));
+    const [sites, setSites] = useState<Site[]>([]);
     const [officers] = useState<Officer[]>(initialOfficers.filter(o => o.tenantId === 'tenant-1'));
-    const [supervisors, setSupervisors] = useState<User[]>(
-        Object.values(initialUsers).filter(u => u.role === 'SUPERVISOR' && u.tenantId === 'tenant-1')
-    );
+    const [supervisors, setSupervisors] = useState<User[]>([]);
     const [companyInfo, setCompanyInfo] = useState({
         name: 'SecureCorp Solutions',
         email: 'ceo@securecorp.com',
@@ -88,12 +87,14 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [isAddPostModalOpen, setIsAddPostModalOpen] = useState(false);
     const [addingPostSite, setAddingPostSite] = useState<Site | null>(null);
     const [isSendingInvite, setIsSendingInvite] = useState(false);
+    const [isInviteManagerModalOpen, setIsInviteManagerModalOpen] = useState(false);
+    const [invitingSite, setInvitingSite] = useState<Site | null>(null);
 
     const [inviteError, setInviteError] = useState('');
     const { currentTenant } = useTenant();
 
     // --- Supervisor Actions ---
-    const saveSupervisor = async (data: Partial<User>) => {
+    const saveSupervisor = async (data: Partial<User>, siteId?: string) => {
         if (editingSupervisor) {
             setSupervisors(prev => prev.map(s => s.id === editingSupervisor.id ? { ...s, ...data } : s));
         } else {
@@ -101,19 +102,13 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
             setIsSendingInvite(true);
             setInviteError('');
             try {
-                await authService.sendInvitation(data.email, 'SUPERVISOR', currentTenant?.id);
-                const newSup: User = {
-                    id: `sup-${Date.now()}`,
-                    name: data.name || '',
-                    email: data.email || '',
-                    role: 'SUPERVISOR',
-                    tenantId: currentTenant?.id || 'tenant-1'
-                };
-                setSupervisors(prev => [...prev, newSup]);
+                await authService.sendInvitation(data.email, 'SUPERVISOR', siteId);
+                // Note: We don't add to local state immediately because they haven't accepted yet
+                // But for UI feedback we can show a "Pending" entry if desired
             } catch (err: any) {
                 setInviteError(err.message);
                 setIsSendingInvite(false);
-                return; // Don't close modal if error
+                return;
             }
             setIsSendingInvite(false);
         }
@@ -128,18 +123,18 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     };
 
     // --- Site Actions ---
-    const saveSite = (data: Partial<Site>) => {
-        const newSite: Site = {
-            id: `site-${Date.now()}`,
-            tenantId: 'tenant-1',
-            name: data.name || 'New Facility',
-            location: data.location || 'Undisclosed Location',
-            managerId: '',
-            managerName: 'Unassigned',
-            totalOfficers: 0
-        };
-        setSites(prev => [...prev, newSite]);
-        setIsAddSiteModalOpen(false);
+    const saveSite = async (data: Partial<Site>) => {
+        try {
+            await siteService.createSite({
+                name: data.name || '',
+                location: data.location || ''
+            });
+            const updatedSites = await siteService.getSites();
+            setSites(updatedSites);
+            setIsAddSiteModalOpen(false);
+        } catch (err: any) {
+            console.error('Failed to save site:', err);
+        }
     };
 
     // --- Site Assignment ---
@@ -168,6 +163,23 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
         }
     };
 
+
+    // --- Initial Fetch ---
+    useEffect(() => {
+        const loadInitialData = async () => {
+            try {
+                const fetchedSites = await siteService.getSites();
+                setSites(fetchedSites);
+                
+                // Supervisors are fetched via personnel service or tactical
+                const personnel = await tacticalService.getPersonnel();
+                setSupervisors(personnel.filter((p: any) => p.role === 'SUPERVISOR'));
+            } catch (err) {
+                console.error('Failed to load dashboard data:', err);
+            }
+        };
+        loadInitialData();
+    }, []);
 
     // --- Fetch OB Entries ---
     useEffect(() => {
@@ -288,8 +300,16 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                                         <button
                                             onClick={() => { setAssigningSite(site); setIsAssignModalOpen(true); }}
                                             className="p-1.5 rounded-lg bg-brand-midnight border border-tactical-border hover:border-brand-cyan/40 text-brand-cyan transition-all"
+                                            title="Assign Existing Supervisor"
                                         >
                                             <Edit3 size={12} />
+                                        </button>
+                                        <button
+                                            onClick={() => { setInvitingSite(site); setIsInviteManagerModalOpen(true); }}
+                                            className="p-1.5 rounded-lg bg-brand-midnight border border-tactical-border hover:border-brand-steel/40 text-brand-steel transition-all"
+                                            title="Invite New Manager"
+                                        >
+                                            <UserPlus size={12} />
                                         </button>
                                     </div>
                                 </div>
@@ -407,6 +427,46 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                             ))}
                         </div>
                     </div>
+                </Modal>
+
+                <Modal isOpen={isInviteManagerModalOpen} onClose={() => setIsInviteManagerModalOpen(false)} title={`Invite Manager: ${invitingSite?.name}`}>
+                    <form className="space-y-4" onSubmit={(e) => { 
+                        e.preventDefault(); 
+                        const formData = new FormData(e.currentTarget); 
+                        saveSupervisor({ 
+                            name: String(formData.get('name')), 
+                            email: String(formData.get('email')) 
+                        }, invitingSite?.id || undefined).then(() => setIsInviteManagerModalOpen(false)); 
+                    }}>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Manager Name</label>
+                            <input name="name" required placeholder="e.g. Marcus Aurelius" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1 block">Manager Email Interface</label>
+                            <input name="email" type="email" required placeholder="admin@securecorp.com" className="w-full bg-brand-midnight border border-tactical-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-cyan/50" />
+                            <p className="text-[8px] text-brand-cyan/60 mt-1 uppercase tracking-tighter italic">* An invitation linked to {invitingSite?.name} will be sent.</p>
+                        </div>
+
+                        {inviteError && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-[10px] text-red-400 font-bold">
+                                Error: {inviteError}
+                            </div>
+                        )}
+
+                        <div className="pt-4 flex gap-3">
+                            <button
+                                type="submit"
+                                disabled={isSendingInvite}
+                                className="flex-1 bg-brand-cyan text-brand-midnight font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSendingInvite ? <Radio size={14} className="animate-pulse" /> : "Confirm Assignment"}
+                            </button>
+                            <button type="button" onClick={() => setIsInviteManagerModalOpen(false)} className="px-6 border border-tactical-border text-tactical-muted font-black text-[10px] uppercase tracking-widest rounded-xl hover:text-white transition-all">
+                                Abort
+                            </button>
+                        </div>
+                    </form>
                 </Modal>
             </div>
         );

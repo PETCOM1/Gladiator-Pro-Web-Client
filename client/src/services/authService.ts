@@ -66,7 +66,7 @@ export const authService = {
         return response.json();
     },
 
-    async sendInvitation(email: string, role: string, tenantId?: string) {
+    async sendInvitation(email: string, role: string, siteId?: string) {
         const token = this.getToken();
         const response = await fetch(`${API_URL}/invitations/send`, {
             method: 'POST',
@@ -74,7 +74,7 @@ export const authService = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ email, role, tenantId }),
+            body: JSON.stringify({ email, role, siteId }),
         });
 
         if (!response.ok) {

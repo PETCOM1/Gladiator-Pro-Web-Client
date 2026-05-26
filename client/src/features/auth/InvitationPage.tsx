@@ -111,7 +111,7 @@ export function InvitationPage() {
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-white uppercase tracking-tight">Accept Invitation</h2>
-                            <p className="text-[10px] text-brand-cyan font-black uppercase tracking-widest mt-1">Gladiator Pro Command Network</p>
+                            <p className="text-[10px] text-brand-cyan font-black uppercase tracking-widest mt-1">Gladiator Security System</p>
                         </div>
                     </div>
 
@@ -165,7 +165,7 @@ export function InvitationPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-tactical-muted uppercase tracking-widest ml-1">Secure Password</label>
+                                <label className="text-[10px] font-black text-tactical-muted uppercase tracking-widest ml-1">Create Password</label>
                                 <div className="relative">
                                     <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-tactical-muted" />
                                     <input
@@ -180,7 +180,7 @@ export function InvitationPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-tactical-muted uppercase tracking-widest ml-1">Confirm Identity Key</label>
+                                <label className="text-[10px] font-black text-tactical-muted uppercase tracking-widest ml-1">Confirm Password</label>
                                 <div className="relative">
                                     <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-tactical-muted" />
                                     <input
