@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Shield, MapPin, UserPlus, Loader2, Building2, ExternalLink, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, MapPin, UserPlus, Loader2, Building2, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
 import { siteService } from '../../services/siteService';
 import { authService } from '../../services/authService';
 

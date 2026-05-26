@@ -124,6 +124,11 @@ export interface OBEntry {
     updatedAt: string;
     // Legacy fields for UI compatibility if needed
     obNo?: string;
+    time?: string;
+    date?: string;
+    officerName?: string;
+    natureOfOccurrence?: string;
+    pageNo?: string;
 }
 
 export interface Visitor {

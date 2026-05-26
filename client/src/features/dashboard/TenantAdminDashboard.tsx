@@ -15,7 +15,6 @@ import { authService } from '../../services/authService';
 import { obEntryService } from '../../services/obEntryService';
 import { tacticalService } from '../../services/tacticalService';
 import { siteService } from '../../services/siteService';
-import { useTenant } from '../../contexts/TenantContext';
 
 
 
@@ -91,7 +90,6 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
     const [invitingSite, setInvitingSite] = useState<Site | null>(null);
 
     const [inviteError, setInviteError] = useState('');
-    const { currentTenant } = useTenant();
 
     // --- Supervisor Actions ---
     const saveSupervisor = async (data: Partial<User>, siteId?: string) => {
