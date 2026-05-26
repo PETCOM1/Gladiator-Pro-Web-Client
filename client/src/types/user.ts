@@ -101,12 +101,12 @@ export interface SiteIncident {
 
 export interface OBEntry {
     id: string;
-    incidentType: string;
-    severity: string;
+    incidentType?: string;
+    severity?: string;
     location?: string;
-    description: string;
+    description?: string;
     image?: string;
-    userId: string;
+    userId?: string;
     user?: {
         name: string;
         email: string;
@@ -119,9 +119,9 @@ export interface OBEntry {
     post?: {
         name: string;
     };
-    tenantId: string;
-    createdAt: string;
-    updatedAt: string;
+    tenantId?: string;
+    createdAt?: string;
+    updatedAt?: string;
     // Legacy fields for UI compatibility if needed
     obNo?: string;
     time?: string;
