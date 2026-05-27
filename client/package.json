@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && npx vite build",
+    "build": "node -e \"const fs = require('fs'); try { fs.rmSync('../node_modules', { recursive: true, force: true }); } catch (e) {}\" && tsc -b && npx vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
