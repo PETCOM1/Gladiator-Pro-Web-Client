@@ -1,6 +1,0 @@
-{
-  "installCommand": "npm install --no-package-lock",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
