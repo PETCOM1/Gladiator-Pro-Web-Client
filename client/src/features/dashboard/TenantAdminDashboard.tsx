@@ -835,7 +835,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                 
                 // Check if there's any real entry within that hour
                 const hasEntry = realEntries.some(e => {
-                    const entryTime = new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const entryTime = new Date(e.createdAt || 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                     return entryTime.startsWith(h.toString().padStart(2, '0'));
                 });
 
@@ -982,7 +982,7 @@ export function TenantAdminDashboard({ onLogout }: { onLogout: () => void }) {
                             const isSystem = entry.officerName === 'SYSTEM' || !entry.user;
                             const officerName = entry.officerName || entry.user?.name || 'Unknown';
                             const natureOfOccurrence = entry.natureOfOccurrence || entry.description;
-                            const time = entry.time || new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                            const time = entry.time || new Date(entry.createdAt || 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                             const obNo = entry.obNo || `OB-${entry.id.substring(0, 5).toUpperCase()}`;
 
                             return (

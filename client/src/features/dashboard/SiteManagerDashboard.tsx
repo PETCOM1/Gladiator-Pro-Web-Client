@@ -1080,7 +1080,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                 
                 // Check if there's any real entry within that hour
                 const hasEntry = realEntries.some(e => {
-                    const entryTime = new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const entryTime = new Date(e.createdAt || 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                     return entryTime.startsWith(h.toString().padStart(2, '0'));
                 });
 
@@ -1136,7 +1136,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                         {posts.map(post => {
                             const postLogs = obEntries.filter(e => e.postId === post.id);
-                            const lastEntry = postLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                            const lastEntry = postLogs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
 
 
                             return (
@@ -1163,7 +1163,7 @@ export function SiteManagerDashboard({ onLogout }: { onLogout: () => void }) {
                                                 {lastEntry && (
                                                     <div>
                                                         <p className="text-[9px] font-black text-tactical-muted uppercase tracking-widest mb-1">Last Log</p>
-                                                        <p className="text-sm font-bold text-white">{new Date(lastEntry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                        <p className="text-sm font-bold text-white">{new Date(lastEntry.createdAt || 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                                     </div>
                                                 )}
 
